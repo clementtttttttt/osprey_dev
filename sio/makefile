@@ -27,7 +27,7 @@
 MCU = atmega16
 F_CPU = 16000000
 RM = rm -rf
-OPT = 3
+OPT = g
 CSTANDARD = gnu99
 
 ISPPORT = usb
@@ -46,7 +46,7 @@ CARGS += -fshort-enums
 CARGS += -ffunction-sections
 CARGS += -Wall -Wstrict-prototypes
 CARGS += -std=$(CSTANDARD)
-CARGS += -DF_CPU=$(F_CPU)
+CARGS += -DF_CPU=$(F_CPU) -g
 LDARGS = -Wl,-L.,-lm,-lavrSerial,--relax,--gc-sections
 
 all: sio.hex

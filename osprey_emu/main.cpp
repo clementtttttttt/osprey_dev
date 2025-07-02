@@ -2,7 +2,11 @@
 #include <string>
 #include <iostream>
 #include <SDL.h>
+#include <CPUAtmega16.h>
 
+extern "C"{
+    #include "CPUAtmega16.h"
+}
 class InitError : public std::exception
 {
     std::string msg;
@@ -38,10 +42,15 @@ class SDL
 {
     SDL_Window * m_window;
     SDL_Renderer * m_renderer;
+    uint32_t pixels[480][320];
+
 public:
     SDL( Uint32 flags = 0 );
     virtual ~SDL();
     void draw();
+    virtual bool poll_events();
+
+    SDL_Texture *fb;
 };
 
 SDL::SDL( Uint32 flags )
@@ -49,9 +58,12 @@ SDL::SDL( Uint32 flags )
     if ( SDL_Init( flags ) != 0 )
         throw InitError();
 
-    if ( SDL_CreateWindowAndRenderer( 640, 480, SDL_WINDOW_SHOWN,
+    if ( SDL_CreateWindowAndRenderer( 320, 480, SDL_WINDOW_SHOWN,
                                       &m_window, &m_renderer ) != 0 )
         throw InitError();
+
+    SDL_SetWindowTitle(m_window, "OSPREY PORTBALE COMPUTING UNIT EMULATOR");
+    fb = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 320, 480);
 }
 
 SDL::~SDL()
@@ -61,53 +73,44 @@ SDL::~SDL()
     SDL_Quit();
 }
 
+bool SDL::poll_events(){
+
+    SDL_Event ev;
+
+    SDL_PollEvent(&ev);
+
+    if(ev.type == SDL_QUIT){
+        return false;
+    }
+
+    return true;
+}
 void SDL::draw()
 {
-    // Clear the window with a black background
-    SDL_SetRenderDrawColor( m_renderer, 0, 0, 0, 255 );
-    SDL_RenderClear( m_renderer );
 
+    SDL_UpdateTexture(fb, NULL, pixels, 320*sizeof(uint32_t));
+    SDL_RenderClear( m_renderer );
+    SDL_RenderCopy(m_renderer, fb, NULL, NULL);
     // Show the window
     SDL_RenderPresent( m_renderer );
 
-    int rgb[] = { 203, 203, 203, // Gray
-                  254, 254,  31, // Yellow
-                    0, 255, 255, // Cyan
-                    0, 254,  30, // Green
-                  255,  16, 253, // Magenta
-                  253,   3,   2, // Red
-                   18,  14, 252, // Blue
-                    0,   0,   0  // Black
-                };
 
-    SDL_Rect colorBar;
-    colorBar.x = 0; colorBar.y = 0; colorBar.w = 90; colorBar.h = 480;
-
-    // Render a new color bar every 0.5 seconds
-    for ( int i = 0; i != sizeof rgb / sizeof *rgb; i += 3, colorBar.x += 90 )
-    {
-        SDL_SetRenderDrawColor( m_renderer, rgb[i], rgb[i + 1], rgb[i + 2], 255 );
-        SDL_RenderFillRect( m_renderer, &colorBar );
-        SDL_RenderPresent( m_renderer );
-        SDL_Delay( 500 );
-    }
 }
+
+int ticks = 0;
+    CPUAtmega16 sio;
 
 int main( int argc, char * argv[] )
 {
-    try
-    {
+
         SDL sdl( SDL_INIT_VIDEO | SDL_INIT_TIMER );
+    sio.loadHex("../sio/sio.hex");
+
+    while(sdl.poll_events()){
+        ++ticks;
+        sio.cycle(999);
         sdl.draw();
-
-        return 0;
-    }
-    catch ( const InitError & err )
-    {
-        std::cerr << "Error while initializing SDL:  "
-                  << err.what()
-                  << std::endl;
     }
 
-    return 1;
+    return 0;
 }

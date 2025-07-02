@@ -13,6 +13,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-g" />
+					<Add directory="include" />
 				</Compiler>
 			</Target>
 			<Target title="Release">
@@ -29,13 +30,23 @@
 			</Target>
 		</Build>
 		<Compiler>
-			<Add option="`sdl2-config --cflags`" />
 			<Add option="-Wall" />
+			<Add option="`sdl2-config --cflags`" />
+			<Add directory="include" />
 		</Compiler>
 		<Linker>
 			<Add option="`sdl2-config --libs`" />
+			<Add directory="digi-avr/ATmega328p" />
 		</Linker>
+		<Unit filename="include/CPU6809.h" />
+		<Unit filename="include/atmega16a.h" />
+		<Unit filename="include/instructions.h" />
+		<Unit filename="include/interrupts.h" />
 		<Unit filename="main.cpp" />
+		<Unit filename="src/CPU6809.cpp" />
+		<Unit filename="src/atmega16a.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Extensions />
 	</Project>
 </CodeBlocks_project_file>
