@@ -45,7 +45,7 @@ MODEH equ 0x2c
 MODEL equ 0x2d
 IN equ 0x200
 
-STACK equ 0x1000 ;1kbyte of stack
+STACK equ 0x400 ;1024 bytes of stack
 
 
 inx macro
