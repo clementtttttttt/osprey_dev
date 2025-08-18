@@ -39,14 +39,12 @@
 			<Add directory="digi-avr/ATmega328p" />
 		</Linker>
 		<Unit filename="include/CPU6809.h" />
-		<Unit filename="include/atmega16a.h" />
+		<Unit filename="include/CPUAtmega16.h" />
 		<Unit filename="include/instructions.h" />
 		<Unit filename="include/interrupts.h" />
 		<Unit filename="main.cpp" />
 		<Unit filename="src/CPU6809.cpp" />
-		<Unit filename="src/atmega16a.c">
-			<Option compilerVar="CC" />
-		</Unit>
+		<Unit filename="src/CPUAtmega16.cpp" />
 		<Extensions />
 	</Project>
 </CodeBlocks_project_file>

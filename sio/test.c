@@ -360,9 +360,10 @@ static inline void write24BitColor(screen_24bit_colors_t in){
 }
 
 void draw_char(uint32_t x, uint32_t y, screen_24bit_colors_t color,screen_24bit_colors_t bg, char c){
+	if(!c) return;
 	uint8_t rows[8];
 	
-	memcpy_P(rows, &osprey_font_bits[((size_t)c)*8], 8);
+	memcpy_P(rows, &osprey_font_bits[((size_t)c-1)*8], 8);
 		screen_setAddrWindow(x,y,x+7, y+7); //each char is 8 wide 8 tall, have to be subtracted by 1 for this 
 	
   writecommand(ILI9488_RAMWR); // write to RAM

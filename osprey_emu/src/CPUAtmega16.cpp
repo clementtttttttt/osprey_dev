@@ -5,6 +5,7 @@
 CPUAtmega16::CPUAtmega16()
 {
     pc = 0;
+    *sp = SRAM_SZ + IO_REGS + REGS - 1; // atmega default stack pointer value at top
     //ctor
 }
 
@@ -14,7 +15,7 @@ CPUAtmega16::~CPUAtmega16()
 }
 
 uint8_t CPUAtmega16::getRegr(uint16_t in){
-    return in & 0xf | ((in & 0x200) >> 5);
+    return (in & 0xf) | ((in & 0x200) >> 5);
 
 }
 
@@ -24,11 +25,11 @@ uint8_t CPUAtmega16::getRegd(uint16_t in){
 }
 
 uint8_t CPUAtmega16::get4bitRegd(uint16_t in){
-    return (in & 0xf0) >> 4 + 16;
+    return (((in) >> 4) & 0xf) + 16;
 }
 
 uint8_t CPUAtmega16::getImmediate8(uint16_t in){
-    return in & 0xf | ((in >> 4) & 0xf0);
+    return (in & 0xf) | ((in >> 4) & 0xf0);
 }
 
 
@@ -127,7 +128,7 @@ void CPUAtmega16::GRP0(uint16_t in){
 
 }
 
-uint8_t CPUAtmega16::isTwoBytes(uint16_t in){
+uint8_t CPUAtmega16::isTwoWords(uint16_t in){
     uint8_t code = in >> 8;
     if(code >= 0x94 && code <= 0x95 && ((in & 0xe) == 0b1100)){ //jmp
         return 1;
@@ -142,6 +143,7 @@ uint8_t CPUAtmega16::isTwoBytes(uint16_t in){
 
 uint8_t CPUAtmega16::setSubSreg(uint8_t rd, uint8_t rr, uint8_t c){
     int8_t result = (int8_t)rd - (int8_t)rr - c;
+    std::cout << "result =" << (int)result << std::endl;
     sreg->c = (!(rd & 0x80) && !!(rr & 0x80)) || (!!(rr & 0x80) && !!(result & 0x80)) || (!!(result & 0x80) && !(rd & 0x80));
     sreg->v = (!!(rd & 0x80) && !(rr & 0x80) && !(result & 0x80)) ||
               (!(rd & 0x80) && !!(rr & 0x80) && !!(result & 0x80));
@@ -172,7 +174,7 @@ void CPUAtmega16::setBitopSreg(uint8_t in){
 //ovid
 void CPUAtmega16::skipNextInstruction(){
     ++pc;
-    if(isTwoBytes(flash[pc])) ++pc;
+    if(isTwoWords(flash[pc])) ++pc;
 
 
 }
@@ -181,6 +183,7 @@ void CPUAtmega16::CPI(uint16_t in){
 
     uint8_t i = getImmediate8(in);
     uint8_t rd = get4bitRegd(in);
+    sreg->z = 1;
     setSubSreg(regs[rd], i, 0);
 }
 
@@ -191,20 +194,32 @@ void CPUAtmega16::ANDI(uint16_t in){
     setBitopSreg(regs[rd]);
 }
 
+
+void CPUAtmega16::checkAddrSanity(uint16_t addr){
+    if(addr > MAX_RAM){
+        std::cout <<"TRIED TO ACCESS " << addr << std::endl;
+        dumpRegs();
+        while(1);
+    }
+}
+
 void CPUAtmega16::writeData(uint16_t addr, uint8_t dat){
+    checkAddrSanity(addr);
     data[addr] = dat;
 }
 
 void CPUAtmega16::writeIO(uint16_t addr, uint8_t dat){
-    writeData(addr + 0x20, dat);
+    writeData(addr + REGS, dat);
 }
 
 uint8_t CPUAtmega16::readData(uint16_t addr){
-    return data[addr];
+    checkAddrSanity(addr);
+    uint8_t ret = data[addr];
+    return ret;
 }
 
 uint8_t CPUAtmega16::readIO(uint16_t addr){
-    return data[addr + 0x20];
+    return readData(addr + REGS);
 }
 
 void CPUAtmega16::ORI(uint16_t in){
@@ -228,9 +243,8 @@ void CPUAtmega16::LDI(uint16_t in){
 
 void CPUAtmega16::INOUT(uint16_t in){
     uint8_t rd = getRegd(in);
-    uint8_t ioreg = (in & 0b11000000000 >> 5) | (in & 0xf);
-    uint8_t is_out = in & 0b100000000000;
-
+    uint8_t ioreg = ((in & 0b11000000000) >> 5) | (in & 0xf);
+    uint8_t is_out = !!(in & 0b100000000000);
     if(is_out){
         writeIO(ioreg,regs[rd]);
     }
@@ -247,7 +261,7 @@ void CPUAtmega16::SUBI(uint16_t in){
 }
 
 void CPUAtmega16::LDD(uint16_t in){ //ldd z+x, y+x, etc
-    uint8_t idxreg_idx = !!((in & 0xf)? 28:30);
+    uint8_t idxreg_idx = (!!(in & 0xf)? 28:30);
     uint16_t* idxreg  = reinterpret_cast<uint16_t*>(&regs[idxreg_idx]);
     uint8_t rd = getRegd(in);
     uint8_t offset = (in & 0b111) | ((in >> 7) & 0b11000) | ((in >> 8) & 0b100000);
@@ -264,7 +278,7 @@ void CPUAtmega16::LDD(uint16_t in){ //ldd z+x, y+x, etc
 }
 
 void CPUAtmega16::push8(uint8_t in){
-    data[*sp--] = in;
+    writeData((*sp)--, in);
 }
 
 void CPUAtmega16::push16(uint16_t in){
@@ -273,7 +287,7 @@ void CPUAtmega16::push16(uint16_t in){
 }
 
 uint8_t CPUAtmega16::pop8(){
-    return data[++*sp];
+    return readData(++(*sp));
 }
 
 uint16_t CPUAtmega16::pop16(){
@@ -284,7 +298,7 @@ uint16_t CPUAtmega16::pop16(){
 }
 
 void CPUAtmega16::GRP4(uint16_t in){
-    if((in & 0b1110) ==  0b1100){ //jmp
+    if(((in & 0b1110) ==  0b1100) && ((in>>8)>=0x94) && ((in >> 8)<=0x95)){ //jmp
         ++pc;
         uint16_t addr = flash[pc];
         pc = addr - 1; //loop round 8192 words (16384k)
@@ -315,7 +329,7 @@ void CPUAtmega16::GRP4(uint16_t in){
             break;
             case 4:
             case 5:
-            {
+            { //lpm,
                 uint16_t *idxreg = reinterpret_cast<uint16_t*>(&regs[30]);
                 uint16_t res = flash[*idxreg >> 1];
                 if(*idxreg & 0b1){
@@ -336,29 +350,30 @@ void CPUAtmega16::GRP4(uint16_t in){
             case 0xd:
             case 0xe:
             {
-                uint8_t idxreg_idx = 0;
-                switch(in >> 2){
-                    case 0: idxreg_idx = 30; break;
-                    case 1: idxreg_idx = 28; break;
-                    case 2: idxreg_idx = 26; break;
-                }
-                uint16_t *idxreg = reinterpret_cast<uint16_t*>(&regs[idxreg_idx]);
+
+                uint16_t *idxreg = nullptr;
+                uint8_t sel = (in & 0xf);
+                if(sel == 1 || sel == 2) idxreg = Z;
+                if(sel == 9 || sel == 0xa) idxreg = Y;
+                if(sel == 0xc || sel == 0xd || sel == 0xe) idxreg = X;
+
+
                 uint8_t incdir = in & 1;
 
                 if(dir){
                     if(incdir){
-                        data[(*idxreg)++] = regs[regd];
+                        writeData((*idxreg)++, regs[regd]);
                     }
                     else{
-                        data[--(*idxreg)] = regs[regd];
+                        writeData(--(*idxreg), regs[regd]);
                     }
                 }
                 else{
                     if(incdir){
-                        regs[regd] = data[(*idxreg)++];
+                        regs[regd] = readData((*idxreg)++);
                     }
                     else{
-                        regs[regd] = data[--(*idxreg)];
+                        regs[regd] = readData(--(*idxreg));
                     }
                 }
             }
@@ -367,9 +382,9 @@ void CPUAtmega16::GRP4(uint16_t in){
             {
                     uint16_t *idxreg = reinterpret_cast<uint16_t*>(&regs[26]);
                     if(dir){
-                        data[*idxreg] = regs[regd];
+                        writeData(data[*idxreg], regs[regd]);
                     }else{
-                        regs[regd] = data[*idxreg];
+                        regs[regd] = readData(*idxreg);
                     }
             }
             break;
@@ -615,25 +630,86 @@ short CPUAtmega16::getBranchingOffset(uint16_t in){
 
     short ret = (in >> 3) & 0x7f;
     if(ret & 0x40){
-        ret |= 0xf800;
+        ret |= 0xff80; //sign extend to 16 bits
     }
     return ret;
 }
 
 void CPUAtmega16::GRPF(uint16_t in){
-    if((in >> 12) & 0x80){
+    if((in >> 8) & 0x8){
+        uint8_t sel = (in >> 9) & 0b111;
+        uint8_t regd = getRegd(in);
+        uint8_t bitsel = (in & 0b111);
+        switch(sel){
+            case 0:
+            {
+                //bld
+                uint8_t b = in & 0b111;
+                regs[regd] &= ~(1<<b);
+                regs[regd] |= sreg->val & (1<<b);
+            }
+                break;
+            case 1:
+             {
+                //bst
+                uint8_t b = in & 0b111;
+                sreg->val &= ~(1<<b);
+                sreg->val |= regs[regd] & (1<<b);
+             }
+                break;
+            case 2:
+            {
+                //sbrc
+                if(!(regs[regd] & (1<<bitsel))){
 
+                    skipNextInstruction();
+                }
+
+
+            }
+            break;
+            case 3:
+            {
+                //sbrs
+                if((regs[regd] & (1<<bitsel))){
+                    skipNextInstruction();
+                }
+            }
+            break;
+
+        }
     }
     else{
-        //branching instrs
-        //TODO: fix this crap
         uint8_t bit = in & 0b111;
+        uint8_t brcond = 0;
+        if(in & 0x400){ //stupid ge bit
+            brcond = !(sreg->val & (1<<bit));
 
-        if(sreg->val & (1 << bit)){
+        }
+
+        else{
+            brcond = !!(sreg->val & (1<<bit));
+
+
+        }
+        if(brcond){
             pc += getBranchingOffset(in);
 
         }
     }
+
+}
+
+void CPUAtmega16::dumpRegs(){
+    for(size_t i=0;i<REGS;++i){
+        std::cout << "R" << std::dec << i << "=" << std::hex << (int)regs[i]<<" ";
+
+    }
+    std::cout << std::endl;
+    std::cout << "X=" << *X << " Y=" <<*Y <<" Z=" <<*Z << std::endl;
+    std::cout << "SP=" << *sp << std::hex <<  " PC=" << pc <<  " 2PC=" << pc * 2 <<  " SREG="<<(int)sreg->val<<std::endl;
+;
+    std::cout << std::endl << std::endl;
 
 }
 
@@ -644,18 +720,36 @@ void(CPUAtmega16::* CPUAtmega16::opcode_funs[])(uint16_t){
     &CPUAtmega16::RJMP, &CPUAtmega16::RCALL, &CPUAtmega16::LDI, &CPUAtmega16::GRPF
 };
 
-void CPUAtmega16::cycle(uint32_t cycles){
+void CPUAtmega16::cycle(uint32_t cycles, bool break_enabled ){
 
     for(uint32_t i=0; i<cycles; ++i){
-        std::cout << std::hex <<  "PC = " << pc <<  " 2PC= " << pc * 2 << std::endl;
         uint16_t cir = flash[pc];
         uint8_t opcode = (cir >> 12) & 0xf;
         std::cout << (int)opcode << std::endl;
-
+        dumpRegs();
         (this->*opcode_funs[opcode])(cir);
         pc &= 0x1fff;
-
         ++pc;
+
+        if(break_enabled){
+        std::string buf;
+        std::getline(std::cin, buf);
+        if(buf.length() != 0){
+            if(buf[0] == 'b'){
+                std::string num = buf.substr(2,buf.length() - 2);
+                uint16_t addr = std::stoi(num, 0, 16) / 2;
+                while(pc != addr){
+                    cycle(1, false);
+
+                }
+            }
+            else{
+
+            int cycles = std::stoi(buf);
+            cycle(cycles, false);
+            }
+            }
+        }
 
     }
 }

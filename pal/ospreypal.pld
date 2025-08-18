@@ -1,0 +1,15 @@
+GAL20V8    ; 4-Bit-Counter  first line : used GAL
+
+E A0 A1 RW A2 /HIMEM A3 NC A4 A15 A14 GND
+NC NC NC /IO2CS /HIRAMCS /IOCS /ROMCS /RD /WR NC NC VCC
+
+IOCS = A15 * /A14 * A4 
+IO2CS = A15 * /A14 * /A4
+ROMCS = A15 * A14 * /HIMEM
+HIRAMCS = A15 * A14 * HIMEM 
+RD = RW * E 
+WR = /RW  * E
+
+
+DESCRIPTION
+osprey logic stuff

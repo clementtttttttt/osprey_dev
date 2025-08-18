@@ -29,8 +29,6 @@ VIA1_DDRA equ 0x8013
 VIA1_B	equ 0x8010
 VIA1_A	equ	0x8011
 
-VIA_PAGE equ 0x80
-
 SD_WR equ VIA1_SR
 SD_RD equ VIA0_SR
 
@@ -61,16 +59,7 @@ dey macro
 	leay -1,y
 	endm
 
-main
-	lda #VIA_PAGE
-	tfr a, dp
-	setdp VIA_PAGE ;VIA pAGE page
-
-	lda #$ff
-	sta VIA1_A
-	sta VIA1_DDRA
-
-	lda #$ff
+main	lda #$ff
 	sta VIA0_DDRB
 	lda #$0
 	sta VIA0_DDRA
@@ -78,9 +67,6 @@ main
 	sta VIA1_PCR
 	lda #$a
 	sta VIA0_PCR	;set via0 to read handhskae?
-	
-	
-	
 	setdp $0 ;zero page
 	
 	ldx #STACK ;load stack value
@@ -97,13 +83,143 @@ main
 	
 	jsr sd_init
 
+
+
+	
+	ldx #hello_str
+	jsr putstr
+
+	
+	lda #$1b
+	
+wozmon:
+	cmpa #8
+	beq backspace
+	cmpa #$1b
+	beq escape
+	leay 1,y
+	cmpy #127
+	ble nextchar
+escape:
+	lda #'\'
+	jsr echo
+getline:
+	lda #$d
+	jsr echo
+	lda #$a
+	jsr echo
+	ldy #1
+backspace: 
+	leay -1,y
+	bmi getline 
+nextchar:
+	jsr getchar
+	sta IN,y
+	jsr echo
+	cmpa #$d
+	bne wozmon
+	
+	ldy #$ffff
+	lda #$0
+	ldx #$0
+setblock:
+	asla
+setstor:
+	asla
+	sta MODEL
+blskip:
+	leay 1,y
+nextitem:
+	lda IN,y
+	cmpa #$d
+	beq getline
+	cmpa #$2e
+	blo blskip 
+	beq setblock
+	cmpa #$3a
+	beq setstor
+	cmpa #$52
+	beq run
+	stx H
+	sty YSAV
+nexthex:
+	lda IN,y
+	eora #$30
+	cmpa #$a
+	blo dig
+	adda #$89
+	cmpa #$fa
+	blo nothex
+dig:
+	asla
+	asla
+	asla
+	asla
+	ldx #$4
+hexshift:
+	asla
+	rol L
+	rol H
+	leax -1,x
+	bne hexshift
+	leay 1,y
+	bra nexthex
+nothex:
+	cmpy YSAV
+	beq escape
+	
+	;bita MODEL
+	;bvc notstor
+	
+	lda MODEL
+	bita #0b1000000
+	beq notstor
 	
 
+	lda L
+	sta [STH]
+	inc STL
+	bne nextitem
+	inc STH
+tonextitem: jmp nextitem
 
-hello_str fcc "Hello from 6809!", 10, 13, "Welcome to WOZMON!",10,13,0
-sd_str fcc "SD INIT",10,13,0
-hexlookup fcc "0123456789ABCDEF"
+run:	jmp [XAMH]
 
+notstor	lda MODEL
+	bmi xamnext
+setadr	ldd H,x
+	std STH, x
+	std XAMH, x
+		ldx #$0
+nxtprnt
+	bne prdata
+	lda #$d
+	bsr echo
+	lda #$a
+	bsr echo
+	lda XAMH
+	bsr prbyte
+	lda XAML
+	bsr prbyte
+	lda #$3a
+	bsr echo
+prdata:
+	lda #$20
+	bsr echo
+	lda [XAMH]
+	jsr prbyte
+
+xamnext	stx MODEH
+	ldd XAMH
+	cmpd H
+	bhs tonextitem
+	
+	inc XAML
+	bne mod8chk
+	inc XAMH
+mod8chk	lda XAML
+	anda #$7
+	bra nxtprnt
 prbyte:	
 	pshs a
 	lsra
@@ -123,6 +239,13 @@ echo:
 	puls a
 	rts
 	
+1	jsr getchar
+	jsr putchar
+
+	bra 1b
+hello_str fcc "Hello from 6809!", 10, 13, "Welcome to WOZMON!",10,13,0
+sd_str fcc "SD INIT",10,13,0
+hexlookup fcc "0123456789ABCDEF"
 
 pr32 ;prints a:b:x 32 bit int
 	pshs b,x

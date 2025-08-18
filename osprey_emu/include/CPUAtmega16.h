@@ -14,7 +14,7 @@
 #define IO_REGS 0x40
 #define REGS 0x20
 
-
+#define MAX_RAM (SRAM_SZ + IO_REGS + REGS)
 
 class CPUAtmega16
 {
@@ -37,7 +37,7 @@ class CPUAtmega16
     public:
         CPUAtmega16();
         virtual ~CPUAtmega16();
-        void cycle(uint32_t cycles);
+        void cycle(uint32_t, bool = true);
         void loadHex(std::string);
     protected:
 
@@ -49,6 +49,10 @@ class CPUAtmega16
         uint8_t *sram = &data[IO_REGS + REGS];
         SREG_t *sreg = reinterpret_cast<SREG_t*>(&io_regs[0x3f]);
         uint16_t *sp = reinterpret_cast<uint16_t*>(&io_regs[0x3d]);
+        uint16_t *X = reinterpret_cast<uint16_t*>(&regs[26]);
+        uint16_t *Y = reinterpret_cast<uint16_t*>(&regs[28]);
+        uint16_t *Z = reinterpret_cast<uint16_t*>(&regs[30]);
+
         uint16_t pc;
 
         static void(CPUAtmega16::* opcode_funs[])(uint16_t)  ;
@@ -57,7 +61,7 @@ class CPUAtmega16
         uint8_t getRegd(uint16_t);
         uint8_t get4bitRegd(uint16_t);
         uint8_t getSubcode(uint16_t);
-        uint8_t isTwoBytes(uint16_t);
+        uint8_t isTwoWords(uint16_t);
         uint8_t setSubSreg(uint8_t rd, uint8_t rr, uint8_t c);
         uint8_t setAddSreg(uint8_t rd, uint8_t rr, uint8_t c);
         void setBitopSreg(uint8_t in);
@@ -90,6 +94,9 @@ class CPUAtmega16
         uint8_t readData(uint16_t);
         void writeIO(uint16_t, uint8_t);
         void writeData(uint16_t, uint8_t);
+        void checkAddrSanity(uint16_t addr);
+
+        void dumpRegs();
 
 
 };
