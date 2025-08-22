@@ -116,13 +116,14 @@ gui_menu_add_item:
 ;x = ptr to gui_menu
 ;s+2 = x coord
 ;s+4 = y coord
+; MUST PRESERVE Y
 gui_menu_draw:
-	pshs x
-	ldx 2,s
-	ldy 4,s
+	pshs x,y
+	ldx 6,s
+	ldy 8,s
 	jsr setc
-	puls x
-	jsr putchar
+	puls x,y
+	jsr putstr
 	
 	
 	
@@ -175,7 +176,7 @@ gui_toolbar_draw:
 	
 	puls y
 	
-	ldx 7,y ;y already advanced by one
+	ldx 7,y ;load x width
 	
 	pshs x,y
 	;print bar
@@ -186,20 +187,25 @@ gui_toolbar_draw:
 	
 	puls x,y
 	
-	pshs y ;toolbar addr in s+4
-	ldx 3,x ;y coord
-	pshs x ; s+2 = y coord
-	ldx 1,x ;x coord in s
-	pshs x ; s = x coord
+	leas -6, s
+	sty 4,s ;toolbar addr in s+4
+	ldx 3,y ;toolbar y coord
+	stx 2,s ; s+2 = y coord
+	ldx 1,y ;toolbar x coord in s
+	inx ;menu coord 
+	stx ,s ; s = x coord
 	
 	ldy 4,s ;get toolbar addr
 	leay 11, y ; advance to list of menus
 	
 2	ldx ,y++ ;x holds menu ptr 
 	beq 3f
-	pshs y
 	jsr gui_menu_draw
-	puls y
+	
+	ldx ,s; margin of two between menu items
+	leax 2,x
+	stx ,s
+	
 	bra 2b
 3
 	

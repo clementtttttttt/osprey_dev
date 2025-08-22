@@ -137,6 +137,20 @@ main
 	
 	leas 8,s ;stack cleanup
 	
+	ldx ,s
+	leax 128,x ;menu object stored in same block 
+	ldy #file_menu_str
+	ldd #1 
+	pshs d
+	jsr gui_menu_constructor
+	
+	leas 2,s ;pop off
+	
+	ldx ,s
+	leax 64, x ;toolbar 
+	leay 64, x ;menu
+	jsr gui_toolbar_add_menu
+	
 	
 	ldx ,s ; queue address in x
 	leay 64,x ;widget at 64 bytes after queue 
@@ -154,6 +168,7 @@ main
 	
 	bra .
 
+file_menu_str fcc "File",0
 gui_str fcc "NO HANGS",0
 hello_str fcc "Hello from 6809!", 10, 13, "Welcome to WOZMON!",10,13,0
 malloc_str fcc "ADR",10,13,0
