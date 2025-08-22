@@ -282,7 +282,7 @@ void write_ack_6522(void){
 		PORTD &= ~VIA0_CA1;
 
 		wait_for_write_6522();
-				PORTD |= VIA0_CA1;
+		PORTD |= VIA0_CA1;
 
 }
 
@@ -309,7 +309,7 @@ void screen_setAddrWindow(uint16_t x0, uint16_t y0, uint16_t x1,
 	 
  }
  
-void write3BitColor(uint8_t color, uint8_t color2){
+static inline void write3BitColor(uint8_t color, uint8_t color2){
 	
 	color <<= 3;
 	color &= 0b111000;
@@ -549,7 +549,8 @@ typedef enum cmd_t {
     CMD_GETC,
     CMD_FPUSH,
     CMD_SETC,
-    CMD_SETFGBG
+    CMD_SETFGBG,
+    CMD_GETCX
     
 } cmd_t;
 
@@ -573,10 +574,10 @@ void float_push(float in){
 
 uint16_t get_short_6522(void){
 	uint16_t ret = 0;
-	uint8_t *raw = (uint8_t*)&ret;
-	raw[1] = get_6522();
-	raw[0] = get_6522();
-	
+		_delay_us(30);
+
+	ret = ((uint16_t)get_6522()<<8) | get_6522();
+
 	return ret;
 }
 
@@ -592,6 +593,19 @@ float get_float_6522(void){
 }
 
 uint8_t sprites[16][8][4] __attribute__((section(".data"))); //2 pixels per byte
+
+
+void write_short_6522(uint16_t in){
+	uint8_t *in2 =(uint8_t*) &in;
+	
+	PORTA = in2[0]; 
+	write_ack_6522();
+	
+	_delay_us(30);
+	PORTA = in2[1];
+	
+	write_ack_6522();
+}
 
 int main(void) {
     
@@ -648,13 +662,22 @@ int main(void) {
 				
 			case CMD_SETC: //two args: y and x
 				ty = get_short_6522();
+
 				tx = get_short_6522();
+
 				break;
 			case CMD_SETFGBG:
 				uint8_t in_fgbg = get_6522(); //5:3 = fg,2:0 = bg
 				term_fg = (in_fgbg >> 3) & 0b111;
 				term_bg = in_fgbg& 0b111;
 				break;
+			case CMD_GETCX:
+				uint16_t buf;
+				while(!(buf = ps2_buf_pull()));
+
+				write_short_6522(buf);
+			
+			break;
 			case CMD_GETC:
 				unsigned char c = 0;
 			    while(!serialHasChar(0) && !(c=ps2_buf_pull())){
@@ -664,6 +687,9 @@ int main(void) {
 					PORTA = serialGet(0); 
 				}
 				else{
+					if((c&PS2_RELEASED)){
+						break;
+					}
 					PORTA = c;
 				}
 				write_ack_6522();

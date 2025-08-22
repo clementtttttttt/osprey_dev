@@ -4,16 +4,17 @@
 
 #include <avr/io.h>
 #include <avr/pgmspace.h> 
+#include <stdio.h>
 
 #include <util/atomic.h>
 #include "ps2.h"
 #include "conf.h"
 #include "ps2_keymap_en.h"
-#define PS2_BUF_LEN 128
+#define PS2_BUF_LEN 16
 
 static void _decode(unsigned char);
 
-unsigned char _buf[PS2_BUF_LEN]; /* only used within ATOMIC_BLOCK */
+unsigned short _buf[PS2_BUF_LEN]; /* only used within ATOMIC_BLOCK */
 uint8_t _bufbeg = 0; /* only used within ATOMIC_BLOCK */
 uint8_t _bufend = 0; /* only used within ATOMIC_BLOCK */
 
@@ -57,8 +58,9 @@ ps2_read(void)
 /* ps2_buf_push - append a char to the pressed keys buffer
  * typically called in PCINT interrupt */
 void
-ps2_buf_push(unsigned char c)
+ps2_buf_push(unsigned short c)
 {
+
 	ATOMIC_BLOCK(ATOMIC_FORCEON) {
 		_buf[_bufend] = c;
 		if (_bufend+1 == PS2_BUF_LEN)
@@ -71,15 +73,17 @@ ps2_buf_push(unsigned char c)
 			else
 				_bufbeg++;
 		}
+		
+
 	}
 }
 
 /* ps2_buf_pull - fetch a char from the pressed keys buffer
  * typically called outside of interrupts */
-unsigned char
+unsigned short
 ps2_buf_pull(void)
 {
-	unsigned char c;
+	unsigned short c;
 
 	ATOMIC_BLOCK(ATOMIC_FORCEON) {
 		if (_bufbeg == _bufend)
@@ -106,13 +110,28 @@ static void
 _decode(unsigned char sc)
 {
 	static unsigned char is_up = 0;
+	static unsigned char is_extended = 0;
 	static unsigned char shift = PS2_SHIFT_DEFAULT;
 	unsigned char i;
+
  
 	if (!is_up) {
+		if(is_extended){
+			if(sc == 0xf0){
+				is_up = 1;
+			}
+			else{
+			is_extended = 0;
+			ps2_buf_push(PS2_EXTENDED|sc); //0x200 = ext
+			}
+		}
+		else{
 		switch (sc) {
 		case 0xF0 : /* up-key */
 			is_up = 1;
+			break;
+		case 0xe0: /*extended keys*/
+			is_extended = 1;
 			break;
 		case 0x12 : /* left shift */
 			shift = 1;
@@ -126,21 +145,27 @@ _decode(unsigned char sc)
 #else
 			if(!shift) {
 				
-				for(i = 0; pgm_read_byte(&_unshifted[i][0])!=sc && pgm_read_byte(&_unshifted[i][0]); i++);
+				for(i = 0; pgm_read_byte(&_unshifted[i][0])!=sc && pgm_read_word(&_unshifted[i][0]); i++);
 				if (pgm_read_byte(&_unshifted[i][0]) == sc) {
-					ps2_buf_push(pgm_read_byte(&_unshifted[i][1]));
+					ps2_buf_push(pgm_read_word(&_unshifted[i][1]));
 				}                                       
 			} else {
-				for(i = 0; pgm_read_byte(&_shifted[i][0])!=sc && pgm_read_byte(&_shifted[i][0]); i++);
+				for(i = 0; pgm_read_byte(&_shifted[i][0])!=sc && pgm_read_word(&_shifted[i][0]); i++);
 				if (pgm_read_byte(&_shifted[i][0]) == sc) {
-					ps2_buf_push(pgm_read_byte(&_shifted[i][1]));
+					ps2_buf_push(pgm_read_word(&_shifted[i][1]));
 				}
 			}
 #endif /* PS2_DEBUG */
 			break;
 		}
+	}
 	} else {
 		is_up = 0; /* two 0xF0 in a row not allowed */
+		if(is_extended){
+			is_extended = 0;
+			ps2_buf_push(PS2_RELEASED|PS2_EXTENDED|sc); //0x100 = ext
+		}
+		else{
 		switch (sc) {
 		case 0x12 : /* left shift */
 			shift = 0;
@@ -148,7 +173,22 @@ _decode(unsigned char sc)
 		case 0x59 : /* right shift */
 			shift = 0;
 			break;
+		default:
+						if(!shift) {
+				
+				for(i = 0; pgm_read_byte(&_unshifted[i][0])!=sc && pgm_read_word(&_unshifted[i][0]); i++);
+				if (pgm_read_byte(&_unshifted[i][0]) == sc) {
+					ps2_buf_push(PS2_RELEASED | pgm_read_word(&_unshifted[i][1]));
+				}                                       
+			} else {
+				for(i = 0; pgm_read_byte(&_shifted[i][0])!=sc && pgm_read_byte(&_shifted[i][0]); i++);
+				if (pgm_read_byte(&_shifted[i][0]) == sc) {
+					ps2_buf_push(PS2_RELEASED | pgm_read_word(&_shifted[i][1]));
+				}
+			}
 		}
+		
 	}
+}
 }                                               
 

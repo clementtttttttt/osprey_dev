@@ -72,7 +72,7 @@ main
 
 	lda #$ff
 	sta VIA0_DDRB
-	lda #$0
+	clra
 	sta VIA0_DDRA
 	lda #$f
 	sta VIA1_PCR
@@ -95,16 +95,72 @@ main
 	ldx #sd_str
 	jsr putstr
 	
+		
+	
+	
 	jsr sd_init
-
 	
 
+	jsr bmalloc_init
 
+	ldx #$0
+	ldy #$0
+	jsr setc
+	
+	jsr gui_init
+
+	
+	leas -64, s; reserve 64 bytes on stack for own use
+	;s: queue_ptr
+	
+	ldb #1
+	jsr bmalloc ; allocate 256 bytes 
+	;FIXME: multi bank switching stuff to be dealt with
+	stx ,s
+	
+	ldy #30 ;total queue size = 64 bytes, 30 ents
+	;x already filled with address
+	jsr gui_init_queue
+	
+	ldx ,s
+	leax 64, x ; our toolbar object stored in the same block
+	
+	leas -8, s ; 4 args on stack
+	ldd #40 ;toolbar width is 40
+	std 6,s
+	ldd #26 ;26 menus, total size 63bytes
+	std 4,s
+	ldd #0 ;x y zero
+	std ,s
+	std 2,s
+	jsr gui_toolbar_constructor
+	
+	leas 8,s ;stack cleanup
+	
+	
+	ldx ,s ; queue address in x
+	leay 64,x ;widget at 64 bytes after queue 
+	jsr gui_queue_add_widget
+	
+		
+
+	ldx ,s
+	jsr gui_draw_queue
+
+		ldx #gui_str 
+	jsr putstr
+	
+	
+	
+	bra .
+
+gui_str fcc "NO HANGS",0
 hello_str fcc "Hello from 6809!", 10, 13, "Welcome to WOZMON!",10,13,0
+malloc_str fcc "ADR",10,13,0
 sd_str fcc "SD INIT",10,13,0
 hexlookup fcc "0123456789ABCDEF"
 
-prbyte:	
+prbyte:		;print A
 	pshs a
 	lsra
 	lsra
@@ -148,8 +204,26 @@ send_dummy	lda #$2
 	bsr wait_ack
 	rts
 
+;y = ty
+;x = tx
+setc
+	lda #$5 ;CMD_SETC
+	sta VIA0_B
+	bsr wait_ack
+	tfr y, d
+	sta VIA0_B
+	bsr wait_ack
+	stb VIA0_B
+	bsr wait_ack
+	tfr x,d
+	sta VIA0_B
+	bsr wait_ack
+	stb VIA0_B
+	bsr wait_ack
+	rts
 	
-	
+
+;x = str ptr
 putstr	lda ,x+	;load x and inc
 	beq 1f	;leave if zero
 	bsr putchar
@@ -163,6 +237,20 @@ getchar 	;returns char in A
 	bsr wait_in
 	lda VIA0_A
 	rts
+
+getcharx
+	lda #$7 ;CMD_GETCX
+	sta VIA0_B
+	bsr wait_ack
+	bsr wait_in
+	ldb VIA0_A
+	
+	pshs b
+	bsr wait_in
+	puls b
+
+	lda VIA0_A
+	rts
 	
 putchar pshs a
 	lda #$1		putchar cmd
@@ -173,6 +261,16 @@ putchar pshs a
 	bsr wait_ack
 	rts
 
+;a = fgbg byte
+setfgbg
+	pshs a
+	lda #6 ;setfgbg
+	sta VIA0_B 
+	bsr wait_ack
+	puls a
+	sta VIA0_B
+	bsr wait_ack
+	rts 
 
 
 wait_in 
@@ -184,7 +282,7 @@ wait_in
 	beq 1b	;b if flag not set
 	rts
 
-wait_ack lda  #$d
+wait_ack lda  #$d ;pull via1 ca2 low 
 	sta VIA1_PCR
 	
 	lda #0b10	;clear ifr flag
@@ -203,28 +301,14 @@ spin ;x = time to spin for
 	dex
 	bne spin
 	rts
-cursor  
-	fdb 0b111000,00000000,00000000,00000000
-	fdb 0b111111,00000000,00000000,00000000,
-	fdb 0b111000,0b111000,00000000,00000000,
-	fdb 0b111000,0b000111,00000000,00000000,
-	fdb 0b111000,0b000000,0b111000,00000000,
-	fdb 0b111000,0b000000,0b000111,00000000,
-	fdb 0b111000,0b000000,0b000000,0b111000,
-	fdb 0b111000,0b000000,0b000111,0b111111,
-	fdb 0b111000,0b111000,0b000111,0b000000,
-	fdb 0b111111,0b000111,0b000000,0b111000,
-	fdb 0b111000,0b000111,0b000000,0b111000,
-	fdb 0b000000,0b000000,0b111000,0b000111,
-	fdb 0b000000,0b000000,0b111000,0b000111,
-	fdb 0b000000,0b000000,0b000111,0b111000,
-	fdb 0b000000,0b000000,0b000000,0b000000,
-	fdb 0b000000,0b000000,0b000000,0b000000
+
 
 
 	INCLUDE	"sdcard.s"
 	INCLUDE "mbr.s"
 	INCLUDE "fat.s"
+	INCLUDE "bmalloc.s"
+	INCLUDE "gui.s"
 
 	dephase 0xc000
 reset_vector	put 0x7ffe

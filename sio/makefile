@@ -27,7 +27,7 @@
 MCU = atmega16
 F_CPU = 16000000
 RM = rm -rf
-OPT = g
+OPT = 3
 CSTANDARD = gnu99
 
 ISPPORT = usb

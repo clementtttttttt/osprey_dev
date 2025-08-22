@@ -141,7 +141,7 @@ sd_write_sect
 	
 	rts
 
-;a:b:x = 32 bit in addr, y = read buf 
+;a:b:x = 32 bit LBA addr, y = read buf 
 ;A != 0xfe if error
 ;y = crc if success
 sd_read_sect
