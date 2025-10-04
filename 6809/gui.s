@@ -22,17 +22,35 @@ gui_init:
 
 
 
-
 ;x: addr of 1 block sz 
 ;gui_queue class:
-;
 ;	short queue_len
+;	char* name
+;	short x
+;	short y
+;	short xsz
+;	short ysz
 ;	short curr_sel (FFFF=no sel)
 ;	gui_widget* widgets[] 
 ;x = ptr to mem block
 ;y= queue_len
+;s+2 = name ptr
+;s+4 = x
+;s+6 = y
+;s+8 = xsz
+;s+10 = ysz
 gui_init_queue:
 	sty ,x++ ;inc to widgets
+	ldd 2,s
+	std ,x++
+	ldd 4,s
+	std ,x++
+	ldd 6,s
+	std ,x++
+	ldd 8,s
+	std ,x++
+	ldd 10,s
+	std ,x++
 	ldd #$ffff
 	std ,x++
 	ldd #$0
@@ -44,45 +62,35 @@ gui_init_queue:
 ;x = ptr to queue
 ;y = widget ptr
 gui_queue_add_widget:
-	leax 4,x
+	leax 14,x
 1	ldd ,x++  
 	bne 1b ;used, continue
 	sty ,--x
 	rts
 	
 
-;gui_callback_pair
-;char name[14]
-;void *callback
 
 
 ;gui_menu
-;char name[12]
+;char *name
 ;short len
 ;short curr_sel (FFFF = no sel)
-;gui_callback_pair[]
+;void * on_item_clicked
+;char* names[]
 ;x = ptr to mem block
 ;y = pointer to name
 ;s+2 = len
+;s+4 = on_item_clicked
 gui_menu_constructor:
-	lda #12
-1	ldb ,y+
-	stb ,x+
-	beq 2f ;zero terminate
-	deca
-	bne 1b
-2	ldy 2,s ;store len
+	sty ,x++
+	ldy 2,s ;store len
 	sty ,x++
 	ldd #$FFFF
 	std ,x++
-	exg y,d
-	aslb 
-	rola
-	aslb
-	rola
-	aslb
-	rola ;mul by 8
-	exg y,d
+	ldy 4,s
+	std ,x++
+
+;setting names*[] arr
 	ldd #$0
 3	std ,x++ ;zero out len
 	dey
@@ -90,27 +98,78 @@ gui_menu_constructor:
 	rts
 
 	
+;gui_list_constructor
+;uint8_t type = 1
+;uint16_t x
+;uint16_t y
+;uint16_t curr_sel (FFFF=no sel)
+;uint16_t num_columns
+;uint16_t num_rows
+;void* on_click
+;char *column_names[num_columns]
+;char* rows_data[num_rows]
+;
+;each pointer in rows_data points to r1\0r2\0r3\0
+;
+
+;x: address for class
+;s+2 = x local
+;s+4 = y local
+;s+6 = num_columns
+;s+8 = num_rows
+;s+10 = on_click_handler
+gui_column_list_constructor:
+	lda #1 ;gui_list type
+	sta ,x+
+	ldy 2,s
+	sty ,x++
+	ldy 4,s
+	sty ,x++
+	ldy #$ffff
+	sty ,x++
+	ldy 6,s ;numcol
+	sty ,x++
+	ldy 8,s  ;numrow
+	sty ,x++
+	ldy 10,s ;on_click handler
+	sty ,x++
+	
+	
+	ldy 6,s
+	ldd #0
+	;y = num of columns
+1	std ,x++
+	dey 
+	bne 1b
+	
+	ldy 8,s 
+	;y = num_of_rows
+2	std ,x++
+	dey
+	bne 2b
+	
+	rts
+	 
+;gui_list_add_row:
+
+;x: address for class
+;
+	
+
 	
 
 
+
 ;x = ptr to gui_menu
-;s+2: name
-;s+4: callback ptr 
+;s+2: name ptr
 gui_menu_add_item:
-	leax 16,x
-1	leax 14,x
-	ldx ,x++
-	beq 1b ;empty entry
-	leax -16, x
+	leax 8,x
+1	ldx ,x++
+	bne 1b ;empty entry
+	
+	leax -2, x
 	ldy 2,s ;get name ptr
-	lda #14
-2	ldb ,y+
-	stb ,x+
-	beq 3f
-	deca
-	bne 1b
-3	ldy 4,s
-	sty ,x ;store callback ptr
+	sty ,x++
 	rts
 	
 ;x = ptr to gui_menu
@@ -123,6 +182,7 @@ gui_menu_draw:
 	ldy 8,s
 	jsr setc
 	puls x,y
+	ldx ,x
 	jsr putstr
 	
 	
@@ -164,15 +224,20 @@ gui_toolbar_constructor
 	
 	
 ;toolkar ptr at y
+;s+2 = x
+;s+4 = y
 gui_toolbar_draw:
 	pshs y
 	
 	ldx 1,y
+	ldd 4,s
+	leax d,x
 	ldy 3,y
+	ldd 6,s
+	leay d,y
 	jsr setc
 	
-	lda #0b111001 ; white on bliue
-	jsr setfgbg
+	
 	
 	puls y
 	
@@ -190,9 +255,13 @@ gui_toolbar_draw:
 	leas -6, s
 	sty 4,s ;toolbar addr in s+4
 	ldx 3,y ;toolbar y coord
+	ldd 10,s ;load y offset
+	leax d,x ;add y offset
 	stx 2,s ; s+2 = y coord
-	ldx 1,y ;toolbar x coord in s
+	ldx 1,y ;toolbar x coord in s    
 	inx ;menu coord 
+	ldd 8,s ;load x offset 
+	leax d,x ;add x offset 
 	stx ,s ; s = x coord
 	
 	ldy 4,s ;get toolbar addr
@@ -225,25 +294,65 @@ gui_toolbar_add_menu:
 	rts
 
 ;x = queue
+
 gui_draw_queue:
-	leax 4,x
+	
+	lda #0b111001
+	jsr setfgbg
+	
+	leas -10, s
+	ldd 4,x
+	std ,s ;x
+	ldd 6,x
+	std 2,s ;y
+	ldd 8,x
+	std 4,s ;xsz
+	ldd 10,x
+	std 6,s ;ysz
+	
+	pshs x
+	
+	ldx 2,s
+	ldy 4,s
+	jsr setc
+	
+	ldx ,s
+	ldx 2,x ;load name ptr
+	jsr putstr
+	
+	puls x
+	
+	ldy 2,s ;load y
+	iny
+	
+	sty 2,s ;widgets at next line
+	
+	leax 14, x ;skip to list of widgets
+	
 
 1	ldy ,x++
 	beq 2f
 	;y now holds pointer to a widget
 	ldb ,y ; b holds type of widget
-	pshs x
 	clra
 	aslb
 	rola ; mul by 2 for idx
 	
+	 
+	
+	stx 8, s; backup x
+
 	ldx #gui_draw_func_table
 	;y = widget addr 
 	jsr [d,x] ;call func ptr + idx
 	
-	puls x
+	ldx 8,s ;restore x
+
 	bra 1b
 2
+
+	leas 10,s 
+	
 	
 	rts
 	

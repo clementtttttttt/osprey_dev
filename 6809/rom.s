@@ -19,6 +19,12 @@ VIA0_IFR equ 0x800d
 VIA0_PCR equ 0x800c
 VIA0_ACR equ 0x800b
 VIA0_SR equ 0x800a
+VIA0_T1L equ 0x8006
+VIA0_T1H equ 0x8007
+VIA0_IER equ 0x800e
+VIA0_T1CL equ 0x8004
+VIA0_T1CH equ 0x8005
+
 
 VIA1_IFR equ 0x801d
 VIA1_PCR equ 0x801c
@@ -28,24 +34,19 @@ VIA1_DDRB equ 0x8012
 VIA1_DDRA equ 0x8013
 VIA1_B	equ 0x8010
 VIA1_A	equ	0x8011
+VIA1_T1L equ 0x8016
+VIA1_T1H equ 0x8017
+VIA1_IER equ 0x801e
+VIA1_T1CL equ 0x8014
+VIA1_T1CH equ 0x8015
 
 VIA_PAGE equ 0x80
 
 SD_WR equ VIA1_SR
 SD_RD equ VIA0_SR
 
-XAMH equ 0x24
-XAML equ 0x25
-STH equ 0x26
-STL equ 0x27
-H equ 0x28
-L equ 0x29
-YSAV equ 0x2a
-MODEH equ 0x2c
-MODEL equ 0x2d
-IN equ 0x200
 
-STACK equ 0x400 ;1024 bytes of stack
+
 
 
 inx macro
@@ -62,6 +63,8 @@ dey macro
 	endm
 
 main
+	orcc #$50 ;disable interrupts
+
 	lda #VIA_PAGE
 	tfr a, dp
 	setdp VIA_PAGE ;VIA pAGE page
@@ -78,7 +81,6 @@ main
 	sta VIA1_PCR
 	lda #$a
 	sta VIA0_PCR	;set via0 to read handhskae?
-	
 	
 	
 	setdp $0 ;zero page
@@ -118,9 +120,23 @@ main
 	;FIXME: multi bank switching stuff to be dealt with
 	stx ,s
 	
-	ldy #30 ;total queue size = 64 bytes, 30 ents
+	ldd #60
+	std ,--s ;ysz
+	ldd #40
+	std ,--s ;xsz
+	ldd #0
+	std ,--s ;y
+	std ,--s ;x
+	ldd #file_man_str
+	std ,--s
+	ldy #25 ;total queue size = 64 bytes, 25 ents
 	;x already filled with address
+	
+	
+	
 	jsr gui_init_queue
+	
+	leas 10,s ;pop 
 	
 	ldx ,s
 	leax 64, x ; our toolbar object stored in the same block
@@ -138,9 +154,9 @@ main
 	leas 8,s ;stack cleanup
 	
 	ldx ,s
-	leax 128,x ;menu object stored in same block 
+	leax 128,x ;menu object stored in same block, 32 bytes
 	ldy #file_menu_str
-	ldd #1 
+	ldd #12
 	pshs d
 	jsr gui_menu_constructor
 	
@@ -160,14 +176,45 @@ main
 
 	ldx ,s
 	jsr gui_draw_queue
+	
+
+
+	lda #0b11000000 ;Timer 1 interrupt enabled
+	sta VIA1_IER
+	
+	
+	lda #$ff
+	sta VIA1_T1H
+	lda #$ff
+	sta VIA1_T1L ;/timer latch = 0xffff = 65535, watchdog called every 1/30 secs
+	
+	
+	lda #$ff
+	sta VIA1_T1CH
+	lda #$ff
+	sta VIA1_T1CL
+
+
+	lda VIA1_ACR
+	anda #$3f ;continuous interrupts from timer 1
+	ora #$40 ;enable free running. do not outupt to pb7
+	sta VIA1_ACR
+	
+
+	;enable hardware interrupts handling by clearing I bit
+	andcc #$ef 
 
 		ldx #gui_str 
 	jsr putstr
 	
-	
-	
-	bra .
 
+
+	
+	
+5	sync
+	bra 5b
+
+file_man_str fcc "File manager",0
 file_menu_str fcc "File",0
 gui_str fcc "NO HANGS",0
 hello_str fcc "Hello from 6809!", 10, 13, "Welcome to WOZMON!",10,13,0
@@ -318,14 +365,17 @@ spin ;x = time to spin for
 	rts
 
 
-
+	INCLUDE "globals.s"
 	INCLUDE	"sdcard.s"
 	INCLUDE "mbr.s"
 	INCLUDE "fat.s"
 	INCLUDE "bmalloc.s"
 	INCLUDE "gui.s"
+	INCLUDE "int.s"
 
 	dephase 0xc000
+int_vector		put 0x7ff8 ;int vec
+	fdb irq_handler
 reset_vector	put 0x7ffe
 	fdb main
 	

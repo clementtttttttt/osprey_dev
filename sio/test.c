@@ -97,30 +97,30 @@ while(!(SPSR & _BV(SPIF)));
 }
 
 void writedata(uint8_t c){
-	PORTB |= LCD_DC;
-	PORTB &= ~(LCD_CS);
+	PORTB &= ~LCD_DC;
+	PORTB |= LCD_CS;
 	
 	screen_write(c);
 	
-	PORTB |= LCD_CS;
+	PORTB &= !LCD_CS;
 }
 
 void writecommand(uint8_t c){
-	PORTB &= ~LCD_DC;
+	PORTB |= LCD_DC;
 	
-	PORTB &= ~LCD_CS;
-	screen_write(c);
 	PORTB |= LCD_CS;
+	screen_write(c);
+	PORTB &= ~LCD_CS;
 }
 
 
 void writecmddata_p(uint8_t c, const uint8_t *restrict d, size_t cnt){
-	PORTB &= ~LCD_DC;
-	PORTB &= ~LCD_CS;
+	PORTB |= LCD_DC;
+	PORTB |= LCD_CS;
 	screen_write(c);
 	
 	
-	PORTB |= LCD_DC;
+	PORTB &= ~LCD_DC;
 	
 	for(size_t i=0;i<cnt;++i){
 		screen_write(pgm_read_byte(&d[i]));
@@ -132,28 +132,28 @@ void writecmddata_p(uint8_t c, const uint8_t *restrict d, size_t cnt){
 }
 
 void writecmddata_s(uint8_t c, const uint8_t d){
-	PORTB &= ~LCD_DC;
-	PORTB &= ~LCD_CS;
+	PORTB |= LCD_DC;
+	PORTB |= LCD_CS;
 	screen_write(c);
 	
 	
-	PORTB |= LCD_DC;
+	PORTB &= ~LCD_DC;
 	
 		screen_write(d);
 	
 	
 
 	
-	PORTB |= LCD_CS;
+	PORTB &= ~LCD_CS;
 }
 
 void writecmddata(uint8_t c, const uint8_t *restrict d, size_t cnt){
-	PORTB &= ~LCD_DC;
-	PORTB &= ~LCD_CS;
+	PORTB |= LCD_DC;
+	PORTB |= LCD_CS;
 	screen_write(c);
 	
 	
-	PORTB |= LCD_DC;
+	PORTB &= ~LCD_DC;
 	
 	for(size_t i=0;i<cnt;++i){
 		screen_write(d[i]);
@@ -161,7 +161,7 @@ void writecmddata(uint8_t c, const uint8_t *restrict d, size_t cnt){
 	
 
 	
-	PORTB |= LCD_CS;
+	PORTB &= ~LCD_CS;
 }
 
 static inline void screen_set_3bit(void){
@@ -185,7 +185,7 @@ void screen_init(void)
 {
 	/* Set MOSI SCK and /SS output*/
 	DDRB = (1<< DDB5)|(1<< DDB7) | LCD_DC | LCD_CS | LCD_CLK | LCD_RST;
-	PORTB = LCD_CS ;
+	//PORTB = LCD_CS ;
 	/* Enable SPI, Master, set clock rate fck/16 */
 	SPCR = (1<< SPE)|(1<< MSTR) ;
 	SPSR |= 1<<SPI2X; //DOUBLE THE SPEED
@@ -256,19 +256,20 @@ char screen_read(void)				/* SPI read data function */
 
 uint8_t screen_read_cmd(uint8_t c){
 	uint8_t index = 0;
-	PORTB &= ~(LCD_DC | LCD_CS);
+	PORTB |= (LCD_DC | LCD_CS);
 	screen_write(0xd9); //magik
-	PORTB |= LCD_DC;
+	PORTB &= ~LCD_DC;
 	screen_write(0x10 + index);
-	PORTB |= LCD_CS;
+	PORTB &= ~LCD_CS;
 	
-	PORTB &= ~(LCD_DC | LCD_CS | LCD_CLK);
+	PORTB &= ~(LCD_CLK);
+	PORTB |= (LCD_DC | LCD_CS);
 	
 	screen_write(c);
 	
-	PORTB |= LCD_DC;
+	PORTB &= ~LCD_DC;
 	uint8_t r = screen_read();
-	PORTB |= LCD_CS;
+	PORTB &= ~LCD_CS;
 	return r;
 	
 }
@@ -368,8 +369,8 @@ void draw_char(uint32_t x, uint32_t y, screen_24bit_colors_t color,screen_24bit_
 	
   writecommand(ILI9488_RAMWR); // write to RAM
 
-	PORTB |= LCD_DC;
-	PORTB &= ~(LCD_CS);
+	PORTB &= ~LCD_DC;
+	PORTB |= (LCD_CS);
 	
 	
 	
@@ -386,7 +387,7 @@ void draw_char(uint32_t x, uint32_t y, screen_24bit_colors_t color,screen_24bit_
 	}
 
 
-	PORTB |= LCD_CS;
+	PORTB &= ~LCD_CS;
 }
 
 void fastrect(int16_t x, int16_t y, int16_t w, int16_t h, screen_3bit_colors_t color){
@@ -400,8 +401,8 @@ void fastrect(int16_t x, int16_t y, int16_t w, int16_t h, screen_3bit_colors_t c
 	
 	writecommand(ILI9488_RAMWR);
 	
-	PORTB |= LCD_DC;
-	PORTB &= ~(LCD_CS);
+	PORTB &= ~LCD_DC;
+	PORTB |= (LCD_CS);
 		  for(y=0; y<h; ++y) {
 
     for(x=0; x<(w/2); ++x) {
@@ -412,7 +413,7 @@ void fastrect(int16_t x, int16_t y, int16_t w, int16_t h, screen_3bit_colors_t c
     }
   }
 
-	PORTB |= LCD_CS;
+	PORTB &= ~LCD_CS;
 		screen_set_18bit();
 
 }
@@ -426,8 +427,8 @@ void draw_char_fast(uint32_t x, uint32_t y, screen_3bit_colors_t color,screen_3b
 	
   writecommand(ILI9488_RAMWR); // write to RAM
 
-	PORTB |= LCD_DC;
-	PORTB &= ~(LCD_CS);
+	PORTB &= ~LCD_DC;
+	PORTB |= (LCD_CS);
 
 	
 	for(y=0; y<8; ++y) {
@@ -445,7 +446,7 @@ void draw_char_fast(uint32_t x, uint32_t y, screen_3bit_colors_t color,screen_3b
 	}
 
 
-	PORTB |= LCD_CS;
+	PORTB &= ~LCD_CS;
 
 			screen_set_18bit();
 
@@ -517,8 +518,8 @@ void rect(int16_t x, int16_t y, int16_t w, int16_t h, screen_24bit_colors_t colo
 	
 	screen_setAddrWindow(x,y,x+w-1, y+h-1);
 	
-	PORTB |= LCD_DC;
-	PORTB &= ~(LCD_CS);
+	PORTB &= ~LCD_DC;
+	PORTB |= (LCD_CS);
 
 	  for(y=0; y<h; y++) {
 		  	    for(x=0; x<w; ++x) {
@@ -530,7 +531,7 @@ void rect(int16_t x, int16_t y, int16_t w, int16_t h, screen_24bit_colors_t colo
     }
   }
 
-	PORTB |= LCD_CS;
+	PORTB &= ~LCD_CS;
 }
 
 ISR (INT0_vect) { /* PS2 interrupt */
