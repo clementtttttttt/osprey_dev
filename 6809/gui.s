@@ -98,6 +98,8 @@ gui_menu_constructor:
 	rts
 
 	
+	
+	
 ;gui_list_constructor
 ;uint8_t type = 1
 ;uint16_t x
@@ -106,8 +108,8 @@ gui_menu_constructor:
 ;uint16_t num_columns
 ;uint16_t num_rows
 ;void* on_click
-;char *column_names[num_columns]
-;char* rows_data[num_rows]
+;char (*column_names)[num_columns]
+;char (*rows_data)[num_rows]
 ;
 ;each pointer in rows_data points to r1\0r2\0r3\0
 ;
