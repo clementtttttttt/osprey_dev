@@ -93,6 +93,10 @@ main
 	jsr spin	;wait for SIO startup
 	lda #$ffff
 	jsr spin
+	lda #$ffff
+	jsr spin
+	lda #$ffff
+	jsr spin
 	
 	ldx #sd_str
 	jsr putstr
