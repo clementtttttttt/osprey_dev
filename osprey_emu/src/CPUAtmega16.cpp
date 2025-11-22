@@ -351,6 +351,8 @@ void CPUAtmega16::GRP4(uint16_t in){
             case 0xe:
             {
 
+
+
                 uint16_t *idxreg = nullptr;
                 uint8_t sel = (in & 0xf);
                 if(sel == 1 || sel == 2) idxreg = Z;

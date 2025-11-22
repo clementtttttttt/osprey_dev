@@ -2,6 +2,7 @@
 #define CPU6809_H
 
 #include <cstdint>
+#include <climits>
 class CPU6809
 {
     public:
@@ -13,6 +14,9 @@ class CPU6809
     protected:
 
     private:
+
+        uint8_t(*read_mem)(uint16_t addr);
+        void(*write_mem)(uint16_t addr,uint8_t byte);
 
 
         enum regs16_t{

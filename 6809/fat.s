@@ -1,3 +1,10 @@
+;FAT_INFO adt
+
+FI_FIRST_FAT_SECTOR equ 0
+FI_ROOT_LBA equ 2
+
+
+
 ;x = 16bit op
 ;a = 8 bit op
 
@@ -28,13 +35,16 @@ mul_16_8
 	leas 3, s ; free everything 
 	rts 
 	
-	
-	
-	
+
+;in: d = cluster number
+;	y = buff;
+;   a:b:x = 
+fat_read_from_cluster:
+
 
 ;y = fat superblock image
 ;in = a:b:x = partition lba
-;a:b:x = root lba
+;a:b:x = root directory entries lba
 fat_get_root_lba
 	pshs d
 	pshs x
@@ -64,14 +74,96 @@ fat_get_root_lba
 	adcb ,s+ ;add 24:16
 	adca ,s+ ;add 32:24
 	
-	
 	rts ;we're done, results stored 
 	
+
+DIRENT_CLUSTER_NUMBER_OFF equ 26
+
+
+;d = cluster number
+;0,s = first fat sector (32 bit lba)
+;clobbers x & y
+
+;d = next_cluster
+;x = ffff if error else 0
+fat_get_next_cluster:
+	pshs u
+	tfr s, u
+	leas -512, s ;allocate space on stack
+	
+	aslb
+	rola ;mul active cluster by two to get offset in fat table
+	
+	pshs d
+	
+	;TODO: sector size other than 512
+	
+	lsra
+	rorb
+	lsra
+	rorb
+	lsra
+	rorb
+	lsra
+	rorb
+	lsra
+	rorb ;div by 512 sector size
+	lsra
+	rorb
+	lsra
+	rorb
+	lsra
+	rorb
+	lsra
+	rorb
+
+	addd 4,s
+	tfr d,x ;low 16 bits into x
+	
+	ldd #$0 ;upper 32 now 0
+	adcb 5,s ;upper 24-16 bits of first fat sector added
+	adca 6,s ;upper 32-24 bits of first fat scector added
+
+	;a:b:x now contains sector number for fat table
+	;y = read buffer addr
+	
+	leay -512, u;read buffer addr
+	
+	jsr sd_read_sect
+	
+	cmpa #$fe 
+	bne 1f ;error
+	
+	puls d
+	
+	;now -512, u contains fact table cluster
+	andb #0b111111111 ;modulo with AND
+	leay -512, u
+	
+	ldd b,y ;read from buffer with offset
+	
+	ldx #$0
+	
+	tfr u,s ;restore original stack pointer
+	puls u ;restore original frame pointer
+	
+	rts
+
+1	ldx #$ffff ;set x to error state
+	tfr u,s
+	puls u
+	rts
+	
+	
+
+
+
 ;*sp = pointer tot a dirents[];
 ;d = idx
-;d = ccluster low 16
+;return value:
+;d = cluster 16 bit number (we're using fat 16)
 fat_get_cluster_from_dirent
-	aslb ;mul by 32 (dirent size)
+	aslb ;mul idx by 32 (dirent size)
 	rola
 	aslb
 	rola 
@@ -86,6 +178,6 @@ fat_get_cluster_from_dirent
 	
 	tfr d,x ;transfer the address to x
 	
-	ldd 26,x ;load low16 bits of cluster number
+	ldd DIRENT_CLUSTER_NUMBER_OFF,x ;load low16 bits of cluster number
 	exg a,b ;convert to big endian
 	rts

@@ -39,6 +39,11 @@
 #include "ps2.h"
 #include "serial.h"
 
+
+// for linker, emulator, and programmer's sake
+#include "avr_mcu_section.h"
+AVR_MCU(F_CPU, "atmega48");
+
 /** \example test.c
  *  Initializes all available UART Modules.
  *  Then prints a welcome message on each and waits
@@ -97,30 +102,30 @@ while(!(SPSR & _BV(SPIF)));
 }
 
 void writedata(uint8_t c){
-	PORTB &= ~LCD_DC;
-	PORTB |= LCD_CS;
+	PORTB |= LCD_DC;
+	PORTB &= ~LCD_CS;
 	
 	screen_write(c);
 	
-	PORTB &= !LCD_CS;
+	PORTB |= LCD_CS;
 }
 
 void writecommand(uint8_t c){
-	PORTB |= LCD_DC;
+	PORTB &= ~LCD_DC;
 	
-	PORTB |= LCD_CS;
-	screen_write(c);
 	PORTB &= ~LCD_CS;
+	screen_write(c);
+	PORTB |= LCD_CS;
 }
 
 
 void writecmddata_p(uint8_t c, const uint8_t *restrict d, size_t cnt){
-	PORTB |= LCD_DC;
-	PORTB |= LCD_CS;
+	PORTB &= ~LCD_DC;
+	PORTB &= ~LCD_CS;
 	screen_write(c);
 	
 	
-	PORTB &= ~LCD_DC;
+	PORTB |= LCD_DC;
 	
 	for(size_t i=0;i<cnt;++i){
 		screen_write(pgm_read_byte(&d[i]));
@@ -132,28 +137,28 @@ void writecmddata_p(uint8_t c, const uint8_t *restrict d, size_t cnt){
 }
 
 void writecmddata_s(uint8_t c, const uint8_t d){
-	PORTB |= LCD_DC;
-	PORTB |= LCD_CS;
+	PORTB &= ~LCD_DC;
+	PORTB &= ~LCD_CS;
 	screen_write(c);
 	
 	
-	PORTB &= ~LCD_DC;
+	PORTB |= LCD_DC;
 	
 		screen_write(d);
 	
 	
 
 	
-	PORTB &= ~LCD_CS;
+	PORTB |= LCD_CS;
 }
 
 void writecmddata(uint8_t c, const uint8_t *restrict d, size_t cnt){
-	PORTB |= LCD_DC;
-	PORTB |= LCD_CS;
+	PORTB &= ~LCD_DC;
+	PORTB &= ~LCD_CS;
 	screen_write(c);
 	
 	
-	PORTB &= ~LCD_DC;
+	PORTB |= LCD_DC;
 	
 	for(size_t i=0;i<cnt;++i){
 		screen_write(d[i]);
@@ -161,7 +166,7 @@ void writecmddata(uint8_t c, const uint8_t *restrict d, size_t cnt){
 	
 
 	
-	PORTB &= ~LCD_CS;
+	PORTB |= LCD_CS;
 }
 
 static inline void screen_set_3bit(void){
@@ -369,8 +374,8 @@ void draw_char(uint32_t x, uint32_t y, screen_24bit_colors_t color,screen_24bit_
 	
   writecommand(ILI9488_RAMWR); // write to RAM
 
-	PORTB &= ~LCD_DC;
-	PORTB |= (LCD_CS);
+	PORTB |= LCD_DC;
+	PORTB &= ~(LCD_CS);
 	
 	
 	
@@ -387,7 +392,7 @@ void draw_char(uint32_t x, uint32_t y, screen_24bit_colors_t color,screen_24bit_
 	}
 
 
-	PORTB &= ~LCD_CS;
+	PORTB |= LCD_CS;
 }
 
 void fastrect(int16_t x, int16_t y, int16_t w, int16_t h, screen_3bit_colors_t color){
@@ -401,8 +406,8 @@ void fastrect(int16_t x, int16_t y, int16_t w, int16_t h, screen_3bit_colors_t c
 	
 	writecommand(ILI9488_RAMWR);
 	
-	PORTB &= ~LCD_DC;
-	PORTB |= (LCD_CS);
+	PORTB |= LCD_DC;
+	PORTB &= ~(LCD_CS);
 		  for(y=0; y<h; ++y) {
 
     for(x=0; x<(w/2); ++x) {
@@ -413,7 +418,7 @@ void fastrect(int16_t x, int16_t y, int16_t w, int16_t h, screen_3bit_colors_t c
     }
   }
 
-	PORTB &= ~LCD_CS;
+	PORTB |= LCD_CS;
 		screen_set_18bit();
 
 }
@@ -427,8 +432,8 @@ void draw_char_fast(uint32_t x, uint32_t y, screen_3bit_colors_t color,screen_3b
 	
   writecommand(ILI9488_RAMWR); // write to RAM
 
-	PORTB &= ~LCD_DC;
-	PORTB |= (LCD_CS);
+	PORTB |= LCD_DC;
+	PORTB &= ~(LCD_CS);
 
 	
 	for(y=0; y<8; ++y) {
@@ -446,7 +451,7 @@ void draw_char_fast(uint32_t x, uint32_t y, screen_3bit_colors_t color,screen_3b
 	}
 
 
-	PORTB &= ~LCD_CS;
+	PORTB |= LCD_CS;
 
 			screen_set_18bit();
 
@@ -518,8 +523,8 @@ void rect(int16_t x, int16_t y, int16_t w, int16_t h, screen_24bit_colors_t colo
 	
 	screen_setAddrWindow(x,y,x+w-1, y+h-1);
 	
-	PORTB &= ~LCD_DC;
-	PORTB |= (LCD_CS);
+	PORTB |= LCD_DC;
+	PORTB &= ~(LCD_CS);
 
 	  for(y=0; y<h; y++) {
 		  	    for(x=0; x<w; ++x) {
@@ -531,7 +536,7 @@ void rect(int16_t x, int16_t y, int16_t w, int16_t h, screen_24bit_colors_t colo
     }
   }
 
-	PORTB &= ~LCD_CS;
+	PORTB |= LCD_CS;
 }
 
 ISR (INT0_vect) { /* PS2 interrupt */
@@ -612,7 +617,7 @@ int main(void) {
     
     // Initialize UART modules
     for (int i = 0; i < serialAvailable(); i++) {
-        serialInit(i, 12);
+        serialInit(i, 12); //76800 baud
     }
 
     // Enable Interrupts
@@ -627,6 +632,8 @@ int main(void) {
 	screen_write(0xff);
 
 	fastrect(0,0,320,480,S3_GREEN);
+
+	draw_scroll_screen(0); //reset scrolling
 
     // Print Welcome Message
     serialWriteString(0, "\r\nOsprey SIO serial interface initialised\n\r");

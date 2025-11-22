@@ -32,11 +32,19 @@ sd_sel	;lowers chip select
 	sta VIA1_A
 	rts
 	
-sd_read_cmdret_byte	;read 1 byte of return val from cmd
+sd_read_cmdret_byte	;read 1 byte of return val from cmd, if sign flag setthen error
+	ldx #$ffff ;timeout
+1	dex
+	beq 2f
 	lda #$ff
 	sd_tfr
-	bmi sd_read_cmdret_byte ;loop if bit 7 set
+	bmi 1b  ;loop if bit 7 set
 	rts
+2	orcc #0b1000
+	rts
+	
+	
+	
 	
 	
 	
@@ -142,6 +150,52 @@ sd_write_sect
 	rts
 
 ;a:b:x = 32 bit LBA addr, y = read buf 
+;0,s = count (16 bit)
+; u  sould be preserved
+
+;A != 0xfe if error
+sd_read_multi_sect
+	pshs y
+
+2
+	ldy 4,s ;load sector count into y
+	beq 3f ;quit
+	
+	dey
+	sty 4,s ;decrement count and store back
+	
+	pshs a,b,x
+	
+	ldy 4,s ;restore buffer
+	
+	jsr sd_read_sect
+	cmpa #$fe
+	beq 1f ;quit if error
+	
+	ldy 4,s
+	leay 512,y
+	sty 4,s ;inc addr by 1 sect
+	
+	puls a,b,x
+	
+	
+	inx
+	bne 2b ;not zero = no carry
+	addd #$1 ;do carry thing
+	bra 2b
+	
+1	
+	leas 4,s ; pop preserved regs
+	rts
+	
+3	lda #$fe ;no error
+	leas 2,s ;pop preserved stack addr
+	rts
+	
+	
+	
+
+;a:b:x = 32 bit LBA addr, y = read buf 
 ;A != 0xfe if error
 ;y = crc if success
 sd_read_sect
@@ -177,7 +231,7 @@ sd_read_sect
 	cmpa #$fe
 	bne 2f
 	
-	ldx #512 ;read 512 bytes
+	ldx #512 ;read 512 bytes ;;FIXME: non-512 byte sector size support
 3 ;read loop
 	
 	lda #$ff
@@ -230,15 +284,27 @@ sd_init
 	dex
 	bne 1b
 	
+	jsr sd_sel
+	lda #$ff 
+	sd_tfr ;more bytes just in case
+	lda #$ff 
+	sd_tfr ;more bytes just in case
+		
 	
 	jsr sd_desel
 
 	lda #$ff 
 	sd_tfr ;dummy init bytes
+	lda #$ff 
+	sd_tfr ;more bytes just in case
+		
 	
 	jsr sd_sel
 	lda #$ff 
 	sd_tfr ;more bytes just in case
+	lda #$ff 
+	sd_tfr ;more bytes just in case
+		
 		
 	lda #$0
 	sd_send_cmdidx
@@ -254,6 +320,9 @@ sd_init
 	sd_tfr
 	
 	jsr sd_read_cmdret_byte
+	;if error then reset
+	lbmi sd_init
+	
 	bita #$0b11111100
 	lbne sd_prn_err
 	
@@ -290,7 +359,7 @@ sd_init
 	cmpa #$aa ;is check pattern good
 	lbne sd_prn_err ;no
 
-1 	;init loop
+2 	;init loop
 	jsr sd_send_cmd55
 	
 	
@@ -314,7 +383,7 @@ sd_init
 	bita #0b11111100
 	lbne sd_prn_err
 	bita #$ff
-	bne 1b ;send stuff again if still in idle
+	bne 2b ;send stuff again if still in idle
 	
 	 
 	
@@ -363,7 +432,8 @@ sd_init
 	
 
 	leas 512,s
-	
+
+
 	rts
 	
 	

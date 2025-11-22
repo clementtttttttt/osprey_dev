@@ -93,11 +93,7 @@ main
 	jsr spin	;wait for SIO startup
 	lda #$ffff
 	jsr spin
-	lda #$ffff
-	jsr spin
-	lda #$ffff
-	jsr spin
-	
+
 	ldx #sd_str
 	jsr putstr
 	
@@ -207,13 +203,6 @@ main
 
 	;enable hardware interrupts handling by clearing I bit
 	andcc #$ef 
-
-		ldx #gui_str 
-	jsr putstr
-	
-
-
-	
 	
 5	sync
 	bra 5b

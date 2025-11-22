@@ -155,8 +155,22 @@ gui_column_list_constructor:
 ;gui_list_add_row:
 
 ;x: address for class
-;
+;0,s: row item name addr
+gui_list_add_row: 
+	leax 9,x ;num_rows
+	ldd ,x ;
+	addd #$1 ;inc
+	std ,x
 	
+	leax 6,x
+	
+1	ldd ,x++
+	bne 1b ;not zero = not empty
+	
+	ldd 2,s ;row item string addr
+	std ,--x ;store it ez
+	
+	rts
 
 	
 

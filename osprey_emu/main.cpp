@@ -3,10 +3,21 @@
 #include <iostream>
 #include <SDL.h>
 #include <CPUAtmega16.h>
+#include <simavr/sim_avr.h>
+#include <simavr/sim_elf.h>
+#include <simavr/avr_ioport.h>
+#include <simavr/avr_uart.h>
+#include "CPU6809.h"
 
-extern "C"{
-    #include "CPUAtmega16.h"
-}
+enum {
+	IRQ_UART_PTY_BYTE_IN = 0,
+	IRQ_UART_PTY_BYTE_OUT,
+	IRQ_UART_PTY_COUNT
+};
+
+
+
+avr_t * sio = NULL;
 class InitError : public std::exception
 {
     std::string msg;
@@ -87,7 +98,6 @@ bool SDL::poll_events(){
 }
 void SDL::draw()
 {
-
     SDL_UpdateTexture(fb, NULL, pixels, 320*sizeof(uint32_t));
     SDL_RenderClear( m_renderer );
     SDL_RenderCopy(m_renderer, fb, NULL, NULL);
@@ -98,18 +108,79 @@ void SDL::draw()
 }
 
 int ticks = 0;
-    CPUAtmega16 sio;
 
+void via_din_hook(struct avr_irq_t * irq, uint32_t value, void * param){
+
+}
+
+static const char * irq_names[IRQ_UART_PTY_COUNT] = {
+	[IRQ_UART_PTY_BYTE_IN] = "8<uart_pty.in",
+	[IRQ_UART_PTY_BYTE_OUT] = "8>uart_pty.out",
+};
+
+static void ser_hook(
+		struct avr_irq_t * irq,
+		uint32_t value,
+		void * param){
+
+    std::cout << (char)value;
+}
+avr_irq_t *ser_irq;
 int main( int argc, char * argv[] )
 {
+    SDL sdl( SDL_INIT_VIDEO | SDL_INIT_TIMER );
 
-        SDL sdl( SDL_INIT_VIDEO | SDL_INIT_TIMER );
-    sio.loadHex("../sio/sio.hex");
+    elf_firmware_t firm = {{0}};
+    elf_read_firmware("test.elf", &firm);
+
+    sio = avr_make_mcu_by_name("atmega16");
+
+    sio->frequency = 16000000; //16mhz
+
+    avr_init(sio);
+    avr_load_firmware(sio, &firm);
+
+    //connect all pins on port a to 6522 (atmega write, 6522 in)
+
+
+	for (int i = 0; i < 8; i++)
+		avr_irq_register_notify(
+			avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('A'), i),
+			via_din_hook,
+			NULL);
+
+    //connect serial
+    ser_irq = avr_alloc_irq(&sio->irq_pool, 0, IRQ_UART_PTY_COUNT, irq_names);
+	avr_irq_register_notify(ser_irq + IRQ_UART_PTY_BYTE_IN, ser_hook, (void*)1234);
+
+    uint32_t f=0; //flag for avr uart
+    //disable studio dump
+	avr_ioctl(sio, AVR_IOCTL_UART_GET_FLAGS('0'), &f);
+	f &= ~AVR_UART_FLAG_STDIO;
+	avr_ioctl(sio, AVR_IOCTL_UART_SET_FLAGS('0'), &f);
+
+	avr_irq_t * src = avr_io_getirq(sio, AVR_IOCTL_UART_GETIRQ('0'), UART_IRQ_OUTPUT);
+    avr_connect_irq(src, ser_irq);
+
+    sio->data[AVR_IO_TO_DATA(0x10)] = 0xff; //set portd to fully high
+
+
+
+    uint8_t main_memory[USHRT_MAX];
+
+    CPU6809 sys_cpu;
 
     while(sdl.poll_events()){
         ++ticks;
-        sio.cycle(999);
+
+
+        for(int i=0;i<99999;++i){
+            avr_run(sio);
+            sys_cpu.run_cycles(1);
+        }
+
         sdl.draw();
+
     }
 
     return 0;

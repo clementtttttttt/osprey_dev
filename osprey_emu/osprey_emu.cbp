@@ -36,6 +36,7 @@
 		</Compiler>
 		<Linker>
 			<Add option="`sdl2-config --libs`" />
+			<Add option="-lsimavr" />
 			<Add directory="digi-avr/ATmega328p" />
 		</Linker>
 		<Unit filename="include/CPU6809.h" />
