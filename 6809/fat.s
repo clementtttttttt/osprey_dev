@@ -36,10 +36,30 @@ mul_16_8
 	rts 
 	
 
-;in: d = cluster number
+;in: x = cluster number
 ;	y = buff;
-;   a:b:x = 
+;   x = sectors offset from start of cluster
+;	0,s = count
 fat_read_from_cluster:
+	pshs u
+	tfr s,u
+	leas 4,u
+	
+	pshs d
+	
+	
+	
+	puls d
+	
+	
+	
+	
+	jsr sd_read_multi_sect
+	
+	
+	puls u
+	rts
+	
 
 
 ;y = fat superblock image

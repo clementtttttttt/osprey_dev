@@ -98,7 +98,7 @@ gui_menu_constructor:
 	rts
 
 	
-	
+GUI_LIST_SZ eq 
 	
 ;gui_list_constructor
 ;uint8_t type = 1
@@ -120,7 +120,7 @@ gui_menu_constructor:
 ;s+6 = num_columns
 ;s+8 = num_rows
 ;s+10 = on_click_handler
-gui_column_list_constructor:
+gui_list_constructor:
 	lda #1 ;gui_list type
 	sta ,x+
 	ldy 2,s
@@ -152,10 +152,32 @@ gui_column_list_constructor:
 	
 	rts
 	 
+;gui_list_add_column:
+;x: address for class
+;0,s: column name addr 
+	
+gui_list_add_column: 
+	leax 7,x ;num_column
+	ldd ,x ;
+	addd #$1 ;inc
+	std ,x
+	
+	leax 6,x
+	
+1	ldd ,x++
+	bne 1b ;not zero = not empty
+	
+	ldd 2,s ;column string addr
+	std ,--x ;store it ez
+	
+	rts
+
+	
+	
 ;gui_list_add_row:
 
 ;x: address for class
-;0,s: row item name addr
+;0,s: row data addr
 gui_list_add_row: 
 	leax 9,x ;num_rows
 	ldd ,x ;

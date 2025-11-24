@@ -480,7 +480,7 @@
 	<cstdint>
 	<string>
 
-1763051317source:/home/clement/Desktop/osprey_dev/osprey_emu/main.cpp
+1763926888source:/home/clement/Desktop/osprey_dev/osprey_emu/main.cpp
 	<exception>
 	<string>
 	<iostream>
@@ -491,6 +491,7 @@
 	<simavr/avr_ioport.h>
 	<simavr/avr_uart.h>
 	"CPU6809.h"
+	<fstream>
 
 1735746473/usr/include/SDL2/SDL.h
 	"SDL_main.h"
@@ -894,10 +895,12 @@
 	<cstdint>
 	<string>
 
-1762702282source:/home/clement/Desktop/osprey_dev/osprey_emu/src/CPU6809.cpp
+1763926986source:/home/clement/Desktop/osprey_dev/osprey_emu/src/CPU6809.cpp
 	"CPU6809.h"
+	<iostream>
+	<unistd.h>
 
-1762695693/home/clement/Desktop/osprey_dev/osprey_emu/include/CPU6809.h
+1763926619/home/clement/Desktop/osprey_dev/osprey_emu/include/CPU6809.h
 	<cstdint>
 	<climits>
 

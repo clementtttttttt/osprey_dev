@@ -85,8 +85,7 @@ main
 	
 	setdp $0 ;zero page
 	
-	ldx #STACK ;load stack value
-	tfr x, s ;init stack
+	lds #STACK ;stack init
 	
 		
 	lda #$ffff

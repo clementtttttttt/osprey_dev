@@ -8,6 +8,7 @@
 #include <simavr/avr_ioport.h>
 #include <simavr/avr_uart.h>
 #include "CPU6809.h"
+#include <fstream>
 
 enum {
 	IRQ_UART_PTY_BYTE_IN = 0,
@@ -72,7 +73,7 @@ SDL::SDL( Uint32 flags )
     if ( SDL_CreateWindowAndRenderer( 320, 480, SDL_WINDOW_SHOWN,
                                       &m_window, &m_renderer ) != 0 )
         throw InitError();
-
+    SDL_SetHint (SDL_HINT_RENDER_VSYNC, "1");
     SDL_SetWindowTitle(m_window, "OSPREY PORTBALE COMPUTING UNIT EMULATOR");
     fb = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 320, 480);
 }
@@ -109,7 +110,7 @@ void SDL::draw()
 
 int ticks = 0;
 
-void via_din_hook(struct avr_irq_t * irq, uint32_t value, void * param){
+void via_din_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
 
 }
 
@@ -125,6 +126,36 @@ static void ser_hook(
 
     std::cout << (char)value;
 }
+
+const static int LOW_MEM_SZ = 32768;
+const static int ROM_SZ = 32768;
+
+uint8_t low_mem[LOW_MEM_SZ];
+uint8_t rom[ROM_SZ];
+
+uint8_t rmf(uint16_t addr){
+
+    const static uint16_t PAGESEL_START = 0xc000;
+
+    if(addr < LOW_MEM_SZ){
+        return low_mem[addr];
+    }
+    else if(addr >= PAGESEL_START){
+        uint32_t mapped_addr = addr - PAGESEL_START;
+
+        //TODO: pagesel selection
+        return rom[mapped_addr + 0x4000];
+    }
+    else return 0xff;
+}
+
+void wmf(uint16_t addr, uint8_t data){
+
+
+}
+
+
+
 avr_irq_t *ser_irq;
 int main( int argc, char * argv[] )
 {
@@ -134,8 +165,8 @@ int main( int argc, char * argv[] )
     elf_read_firmware("test.elf", &firm);
 
     sio = avr_make_mcu_by_name("atmega16");
-
-    sio->frequency = 16000000; //16mhz
+    const static int AVR_FREQ = 16000000;
+    sio->frequency = AVR_FREQ; //16mhz
 
     avr_init(sio);
     avr_load_firmware(sio, &firm);
@@ -166,16 +197,19 @@ int main( int argc, char * argv[] )
 
 
 
-    uint8_t main_memory[USHRT_MAX];
+    std::ifstream rom_file("rom", std::ios::binary);
+    rom_file.read(reinterpret_cast<char*>(&rom[0]), ROM_SZ);
 
-    CPU6809 sys_cpu;
+
+    CPU6809 sys_cpu(rmf, wmf);
 
     while(sdl.poll_events()){
         ++ticks;
 
 
-        for(int i=0;i<99999;++i){
+        for(int i=0;i<AVR_FREQ/60;++i){
             avr_run(sio);
+            if(i % 8 == 0) //2 mhz for 6809
             sys_cpu.run_cycles(1);
         }
 
