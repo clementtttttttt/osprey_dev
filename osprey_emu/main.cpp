@@ -2,7 +2,6 @@
 #include <string>
 #include <iostream>
 #include <SDL.h>
-#include <CPUAtmega16.h>
 #include <simavr/sim_avr.h>
 #include <simavr/sim_elf.h>
 #include <simavr/avr_ioport.h>
@@ -150,7 +149,13 @@ uint8_t rmf(uint16_t addr){
 }
 
 void wmf(uint16_t addr, uint8_t data){
-
+	if(addr < LOW_MEM_SZ){
+        low_mem[addr] = data;
+    }
+	
+	if(addr >=0x8000 && addr < 0xc000){
+		std::cout << "io write: " << std::hex << addr << " " << (uint16_t)data<< std::endl;
+	}
 
 }
 
@@ -209,8 +214,11 @@ int main( int argc, char * argv[] )
 
         for(int i=0;i<AVR_FREQ/60;++i){
             avr_run(sio);
-            if(i % 8 == 0) //2 mhz for 6809
-            sys_cpu.run_cycles(1);
+            if(i % 8 == 0){ //2 mhz for 6809
+				sys_cpu.run_cycles(1);
+			            getchar();
+
+			}
         }
 
         sdl.draw();
