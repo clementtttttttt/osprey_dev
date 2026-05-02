@@ -98,8 +98,7 @@ gui_menu_constructor:
 	rts
 
 	
-GUI_LIST_SZ eq 
-	
+
 ;gui_list_constructor
 ;uint8_t type = 1
 ;uint16_t x
