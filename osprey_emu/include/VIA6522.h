@@ -23,10 +23,7 @@ class VIA6522{
 	
 	
 	
-	VIA6522();
-	
-	void reset();
-	
+
 	enum REG6522_R{
 			IRBR,
 			IRAR,
@@ -66,6 +63,13 @@ class VIA6522{
 			ORA_NOHSW
 		
 	};
+	
+public:
+	void reg_write(REG6522_W addr, uint8_t data);
+	VIA6522();
+	
+	void reset();
+	
 	
 };
 

@@ -21,3 +21,23 @@ void VIA6522::reset(){
 	ifr=0;
 	ier=0;
 }
+
+void VIA6522::reg_write(REG6522_W addr, uint8_t data){
+	switch(addr){
+		case DDRBW:
+			ddrb = data;
+			break;
+		case DDRAW:
+			ddra = data;
+			break;
+		case IFRW:
+			//ifr clears when bit is 1, except bit 7
+			data = ~data;
+			data |= 0x80; //bit 7 cannot be cleared
+			ifr &= data;
+			break;
+			
+		
+	}
+	
+}
