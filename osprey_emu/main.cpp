@@ -7,6 +7,8 @@
 #include <simavr/avr_ioport.h>
 #include <simavr/avr_uart.h>
 #include "CPU6809.h"
+#include "VIA6522.h"
+
 #include <fstream>
 
 enum {
@@ -131,6 +133,8 @@ const static int ROM_SZ = 32768;
 
 uint8_t low_mem[LOW_MEM_SZ];
 uint8_t rom[ROM_SZ];
+VIA6522 VIA0();
+VIA6522 VIA1();
 
 uint8_t rmf(uint16_t addr){
 
@@ -207,6 +211,8 @@ int main( int argc, char * argv[] )
 
 
     CPU6809 sys_cpu(rmf, wmf);
+	
+
 
     while(sdl.poll_events()){
         ++ticks;
