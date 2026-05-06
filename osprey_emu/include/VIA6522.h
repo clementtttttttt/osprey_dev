@@ -21,7 +21,15 @@ class VIA6522{
 	uint8_t ifr;
 	uint8_t ier;
 	
-	
+	enum IFR_BITS{
+		IFR_CA2 = 0b1,
+		IFR_CA1 = 0b10,
+		IFR_SR  = 0b100,
+		IFR_CB2 = 8,
+		IFR_CB1 = 16,
+		IFR_T2 = 32,
+		IFR_T1 = 64
+	};
 	
 
 	enum REG6522_R{
@@ -68,6 +76,8 @@ public:
 	void reg_write(uint16_t addr, uint8_t data);
 	VIA6522();
 	uint8_t reg_read(uint16_t addr);
+	void ext_write_portb(uint8_t active_bits, uint8_t data);
+	void ext_write_porta(uint8_t active_bits, uint8_t data);
 
 	void reset();
 	

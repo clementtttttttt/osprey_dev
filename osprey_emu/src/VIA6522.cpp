@@ -55,10 +55,43 @@ uint8_t VIA6522::reg_read(uint16_t in){
 		return 0xff;
 }
 
+void VIA6522::ext_write_portb(uint8_t active_bits, uint8_t data){
+	if(active_bits & ddrb){
+		std::cout << "WARNING: BUS CONFLICT ON PORTB!" << std::endl;
+	}
+	
+	portb &= active_bits;//unset data in input bits
+	data &= ~(active_bits); //unset data in unused bits 
+	
+	portb |= data; //combine data
+	
+	return;
+}
+
+void VIA6522::ext_write_porta(uint8_t active_bits, uint8_t data){
+	if(active_bits & ddra){
+		std::cout << "WARNING: BUS CONFLICT ON PORTA!" << std::endl;
+	}
+	
+	porta &= active_bits;//unset data in input bits
+	data &= ~(active_bits); //unset data in unused bits 
+	
+	porta |= data; //combine data
+	
+	return;
+}
 
 void VIA6522::reg_write(uint16_t in, uint8_t data){
 	REG6522_W addr = static_cast<REG6522_W>(in);
 	switch(addr){
+		case ORAW:
+			porta = data;
+			ifr &= ~(IFR_CA1); //clear ca1 int
+			break;
+		case ORBW:
+			portb = data;
+			ifr &= ~(IFR_CB1); //clear ca1 int
+			break;
 		case DDRBW:
 			ddrb = data;
 			break;
@@ -78,6 +111,7 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 		default:
 			std::cout <<"unimplemented VIA reg " << std::hex <<in << std::endl;
 			break;
+		
 		
 	}
 	
