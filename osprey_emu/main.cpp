@@ -5,6 +5,8 @@
 #include <simavr/sim_avr.h>
 #include <simavr/sim_elf.h>
 #include <simavr/avr_ioport.h>
+#include <simavr/avr_spi.h>
+
 #include <simavr/avr_uart.h>
 #include "CPU6809.h"
 #include "VIA6522.h"
@@ -128,13 +130,21 @@ static void ser_hook(
     std::cout << (char)value;
 }
 
+static void spi_hook(
+		struct avr_irq_t * irq,
+		uint32_t value,
+		void * param){
+
+//    std::cout << "(SPI)"<<(char)value;
+}
+
 const static int LOW_MEM_SZ = 32768;
 const static int ROM_SZ = 32768;
 
 uint8_t low_mem[LOW_MEM_SZ];
 uint8_t rom[ROM_SZ];
-VIA6522 VIA0();
-VIA6522 VIA1();
+VIA6522 VIA0;
+VIA6522 VIA1;
 
 uint8_t rmf(uint16_t addr){
 
@@ -158,7 +168,9 @@ void wmf(uint16_t addr, uint8_t data){
     }
 	
 	if(addr >=0x8000 && addr < 0xc000){
-		std::cout << "io write: " << std::hex << addr << " " << (uint16_t)data<< std::endl;
+		if(!(addr & 0x10)){ //a4 not set == via1
+			VIA1.reg_write((size_t)(addr&0xf), data);
+		}
 	}
 
 }
@@ -166,6 +178,8 @@ void wmf(uint16_t addr, uint8_t data){
 
 
 avr_irq_t *ser_irq;
+avr_irq_t *spi_irq;
+
 int main( int argc, char * argv[] )
 {
     SDL sdl( SDL_INIT_VIDEO | SDL_INIT_TIMER );
@@ -193,18 +207,28 @@ int main( int argc, char * argv[] )
     ser_irq = avr_alloc_irq(&sio->irq_pool, 0, IRQ_UART_PTY_COUNT, irq_names);
 	avr_irq_register_notify(ser_irq + IRQ_UART_PTY_BYTE_IN, ser_hook, (void*)1234);
 
+
+	const char *spi_names = "ili9488 spi irq";
+    //connect spi
+    spi_irq = avr_alloc_irq(&sio->irq_pool, 0, 1, &spi_names);
+	avr_irq_register_notify(spi_irq, spi_hook, (void*)1234);
+
+
     uint32_t f=0; //flag for avr uart
     //disable studio dump
 	avr_ioctl(sio, AVR_IOCTL_UART_GET_FLAGS('0'), &f);
 	f &= ~AVR_UART_FLAG_STDIO;
 	avr_ioctl(sio, AVR_IOCTL_UART_SET_FLAGS('0'), &f);
 
-	avr_irq_t * src = avr_io_getirq(sio, AVR_IOCTL_UART_GETIRQ('0'), UART_IRQ_OUTPUT);
-    avr_connect_irq(src, ser_irq);
+	{
+		avr_irq_t * src = avr_io_getirq(sio, AVR_IOCTL_UART_GETIRQ('0'), UART_IRQ_OUTPUT);
+		avr_connect_irq(src, ser_irq);
+	}
 
     sio->data[AVR_IO_TO_DATA(0x10)] = 0xff; //set portd to fully high
 
-
+	avr_irq_t * spisrc = avr_io_getirq(sio, AVR_IOCTL_SPI_GETIRQ(0), SPI_IRQ_OUTPUT);
+	avr_connect_irq(spisrc, spi_irq);
 
     std::ifstream rom_file("rom", std::ios::binary);
     rom_file.read(reinterpret_cast<char*>(&rom[0]), ROM_SZ);
@@ -222,7 +246,6 @@ int main( int argc, char * argv[] )
             avr_run(sio);
             if(i % 8 == 0){ //2 mhz for 6809
 				sys_cpu.run_cycles(1);
-			            getchar();
 
 			}
         }

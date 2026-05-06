@@ -65,12 +65,12 @@ class VIA6522{
 	};
 	
 public:
-	void reg_write(REG6522_W addr, uint8_t data);
+	void reg_write(uint16_t addr, uint8_t data);
 	VIA6522();
 	
 	void reset();
 	
-	
+	uint8_t ext_get_sr();
 };
 
 #endif

@@ -1,4 +1,7 @@
 #include "CPU6809.h"
+
+
+#ifdef CPU6809_DEBUG
 #include <cstdio>
 #include <cstring>
 
@@ -36,6 +39,8 @@ static const char* mnemonic_table[256] = {
     "SUBB",   "CMPB",   "SBCB",   "ADDD",   "ANDB",   "BITB",   "LDB",    "STB",
     "EORB",   "ADCB",   "ORB",    "ADDB",   "LDD",    "STD",    "LDU",    "STU",
 };
+
+#endif
 
 CPU6809::CPU6809(uint8_t(*rmf)(uint16_t addr), void(*wmf)(uint16_t addr, uint8_t byte))
     : read_mem(rmf), write_mem(wmf), cc(0), dp(0), zero(0), reset(true), ir(0)
@@ -665,12 +670,16 @@ static inline bool br_gt(uint8_t cc)   { return !(cc & 0x04) && ((cc & 0x08) != 
 static inline bool br_le(uint8_t cc)   { return (cc & 0x04) || ((cc & 0x08) != 0) != ((cc & 0x02) != 0); }
 
 void CPU6809::page_2() {
+#ifdef CPU6809_DEBUG
     uint16_t base_pc = regs_16[reg_pc];
+#endif
     uint8_t op = read_mem(regs_16[reg_pc]++);
 
     if (op >= 0x21 && op <= 0x2F) {
         int16_t off = ea_rel16();
+#ifdef CPU6809_DEBUG
         static const char* lb_names[] = { nullptr, "LBRN","LBHI","LBLS","LBCC","LBCS","LBNE","LBEQ","LBVC","LBVS","LBPL","LBMI","LBGE","LBLT","LBGT","LBLE" };
+#endif
         bool taken = false;
         switch (op) {
             case 0x21: break;
@@ -680,17 +689,23 @@ void CPU6809::page_2() {
             case 0x28: taken = br_vc(cc); break; case 0x29: taken = br_vs(cc); break;
             case 0x2A: taken = br_pl(cc); break; case 0x2B: taken = br_mi(cc); break;
             case 0x2C: taken = br_ge(cc); break; case 0x2D: taken = br_lt(cc); break;
-            case 0x2E: taken = br_gt(cc); break; case 0x2F: taken = br_le(cc); break;
+            case 0x2E: taken = br_gt(cc); break;             case 0x2F: taken = br_le(cc); break;
         }
-        uint16_t target = base_pc + 3 + off;
         if (taken) do_bra16(off);
+#ifdef CPU6809_DEBUG
+        uint16_t target = base_pc + 3 + off;
         fprintf(stderr, "              10 %02X %-6s $%04X  (%s)\n", op,
                 lb_names[op & 0x0F] ? lb_names[op & 0x0F] : "???",
                 target, taken ? "taken" : "not taken");
+#endif
         return;
     }
 
-    if (op == 0x3F) { fprintf(stderr, "              10 3F SWI2\n"); op_swi2(); return; }
+    if (op == 0x3F) {
+#ifdef CPU6809_DEBUG
+        fprintf(stderr, "              10 3F SWI2\n");
+#endif
+        op_swi2(); return; }
 
     uint8_t hi = (op >> 4) & 0x0f;
     uint8_t lo = op & 0x0f;
@@ -725,7 +740,11 @@ void CPU6809::page_2() {
 
 void CPU6809::page_3() {
     uint8_t op = read_mem(regs_16[reg_pc]++);
-    if (op == 0x3F) { fprintf(stderr, "              11 3F SWI3\n"); op_swi3(); return; }
+    if (op == 0x3F) {
+#ifdef CPU6809_DEBUG
+        fprintf(stderr, "              11 3F SWI3\n");
+#endif
+        op_swi3(); return; }
 
     uint8_t hi = (op >> 4) & 0x0f;
     uint8_t lo = op & 0x0f;
@@ -761,6 +780,7 @@ void (CPU6809::*CPU6809::opcode_table[MAX_OPCODE])() = {
     &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b, &CPU6809::dispatch_alu_b,
 };
 
+#ifdef CPU6809_DEBUG
 static void trace_regs(uint8_t cc, uint16_t d, uint16_t x, uint16_t y, uint16_t u, uint16_t s, uint16_t pc) {
     fprintf(stderr, "  D=%04X X=%04X Y=%04X U=%04X S=%04X CC=%02X [%c%c%c%c%c%c%c%c]\n",
         d, x, y, u, s, cc,
@@ -781,15 +801,21 @@ static const char* am_suffix(uint8_t ir) {
     }
 }
 
+#endif
+
 void CPU6809::run_cycles(uint32_t c) {
+    (void)c;
     if (reset) {
         regs_16[reg_pc] = read16(0xfffe);
         reset = false;
+#ifdef CPU6809_DEBUG
         fprintf(stderr, "\n=== RESET -> PC=%04X ===\n\n", regs_16[reg_pc]);
+#endif
     } else {
-        uint16_t save_pc = regs_16[reg_pc];
         ir = read_mem(regs_16[reg_pc]++);
 
+#ifdef CPU6809_DEBUG
+        uint16_t save_pc = regs_16[reg_pc] - 1;
         const char* mn = mnemonic_table[ir];
         if (mn) {
             fprintf(stderr, "%04X: %02X %-6s%s", save_pc, ir, mn, am_suffix(ir));
@@ -799,24 +825,26 @@ void CPU6809::run_cycles(uint32_t c) {
             fprintf(stderr, "%04X: %02X %-6s", save_pc, ir, "???");
         }
 
-        uint16_t op1 = 0, op2 = 0;
         switch (ir >> 4) {
-            case 0x0: op1 = ir & 0x0f ? read_mem(regs_16[reg_pc]) : 0; fprintf(stderr, " $%02X", dp); fprintf(stderr, "%02X", op1); break;
-            case 0x2: op1 = read_mem(regs_16[reg_pc]); if (ir != 0x21) { int8_t so = (int8_t)op1; fprintf(stderr, " $%04X", save_pc + 2 + so); } break;
-            case 0x3: if (ir == 0x34 || ir == 0x35 || ir == 0x36 || ir == 0x37 || ir == 0x3C) { op1 = read_mem(regs_16[reg_pc]); fprintf(stderr, " #$%02X", op1); } break;
-            case 0x7: case 0xB: case 0xF: op1 = read_mem(regs_16[reg_pc]); op2 = read_mem(regs_16[reg_pc] + 1); fprintf(stderr, " $%02X%02X", op1, op2); break;
-            case 0x8: case 0xC: op1 = read_mem(regs_16[reg_pc]); fprintf(stderr, " #$%02X", op1); break;
+            case 0x0: { uint8_t b = ir & 0x0f ? read_mem(regs_16[reg_pc]) : 0; fprintf(stderr, " $%02X", dp); fprintf(stderr, "%02X", b); } break;
+            case 0x2: { uint8_t b = read_mem(regs_16[reg_pc]); if (ir != 0x21) fprintf(stderr, " $%04X", save_pc + 2 + (int8_t)b); } break;
+            case 0x3: if (ir == 0x34 || ir == 0x35 || ir == 0x36 || ir == 0x37 || ir == 0x3C) { fprintf(stderr, " #$%02X", read_mem(regs_16[reg_pc])); } break;
+            case 0x7: case 0xB: case 0xF: { uint8_t h = read_mem(regs_16[reg_pc]), l = read_mem(regs_16[reg_pc] + 1); fprintf(stderr, " $%02X%02X", h, l); } break;
+            case 0x8: case 0xC: fprintf(stderr, " #$%02X", read_mem(regs_16[reg_pc])); break;
             default: break;
         }
+#endif
 
         void (CPU6809::*func)() = opcode_table[ir];
         if (func != nullptr) {
             (this->*func)();
-        } else {
+        }
+#ifdef CPU6809_DEBUG
+        else {
             fprintf(stderr, " (UNDEF)");
         }
-
         trace_regs(cc, regs_16[reg_d], regs_16[reg_x], regs_16[reg_y],
                    regs_16[reg_u], regs_16[reg_s], regs_16[reg_pc]);
+#endif
     }
 }

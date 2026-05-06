@@ -22,7 +22,13 @@ void VIA6522::reset(){
 	ier=0;
 }
 
-void VIA6522::reg_write(REG6522_W addr, uint8_t data){
+uint8_t VIA6522::ext_get_sr(){
+	return sr;
+}
+
+
+void VIA6522::reg_write(uint16_t in, uint8_t data){
+	REG6522_W addr = static_cast<REG6522_W>(in);
 	switch(addr){
 		case DDRBW:
 			ddrb = data;
