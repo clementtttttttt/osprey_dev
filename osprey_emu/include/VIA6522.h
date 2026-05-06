@@ -78,7 +78,9 @@ public:
 	uint8_t reg_read(uint16_t addr);
 	void ext_write_portb(uint8_t active_bits, uint8_t data);
 	void ext_write_porta(uint8_t active_bits, uint8_t data);
-
+	
+	void ext_set_ca1();
+	
 	void reset();
 	
 	uint8_t ext_get_sr();

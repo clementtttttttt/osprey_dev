@@ -68,6 +68,11 @@ void VIA6522::ext_write_portb(uint8_t active_bits, uint8_t data){
 	return;
 }
 
+void VIA6522::ext_set_ca1(){
+	ifr |= IFR_CA1;
+}
+
+
 void VIA6522::ext_write_porta(uint8_t active_bits, uint8_t data){
 	if(active_bits & ddra){
 		std::cout << "WARNING: BUS CONFLICT ON PORTA!" << std::endl;
