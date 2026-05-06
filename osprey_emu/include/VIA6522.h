@@ -67,7 +67,8 @@ class VIA6522{
 public:
 	void reg_write(uint16_t addr, uint8_t data);
 	VIA6522();
-	
+	uint8_t reg_read(uint16_t addr);
+
 	void reset();
 	
 	uint8_t ext_get_sr();

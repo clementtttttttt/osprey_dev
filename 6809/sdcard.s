@@ -1,7 +1,7 @@
 sd_wait_spi
 	lda VIA1_IFR
 	bita #0b100 ;is shift register interrupt flag set
-	bne sd_wait_spi
+	beq sd_wait_spi
 	lda #0b100
 	sta VIA1_IFR ;unset flag
 	rts

@@ -1,6 +1,6 @@
 #include "CPU6809.h"
 
-
+#define CPU6809_DEBUG
 #ifdef CPU6809_DEBUG
 #include <cstdio>
 #include <cstring>

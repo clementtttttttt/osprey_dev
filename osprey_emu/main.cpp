@@ -153,6 +153,16 @@ uint8_t rmf(uint16_t addr){
     if(addr < LOW_MEM_SZ){
         return low_mem[addr];
     }
+    
+    if(addr >=0x8000 && addr < 0xc000){
+		if(!(addr & 0x10)){ //a4 not set == via1
+			return VIA1.reg_read((size_t)(addr&0xf));
+		}
+		if((addr & 0x10)){ //a4 set == via0
+			return VIA0.reg_read((size_t)(addr&0xf));
+		}
+	}
+
     else if(addr >= PAGESEL_START){
         uint32_t mapped_addr = addr - PAGESEL_START;
 
@@ -170,6 +180,9 @@ void wmf(uint16_t addr, uint8_t data){
 	if(addr >=0x8000 && addr < 0xc000){
 		if(!(addr & 0x10)){ //a4 not set == via1
 			VIA1.reg_write((size_t)(addr&0xf), data);
+		}
+		if((addr & 0x10)){ //a4 set == via0
+			VIA0.reg_write((size_t)(addr&0xf), data);
 		}
 	}
 
