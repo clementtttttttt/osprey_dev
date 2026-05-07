@@ -20,6 +20,8 @@ void VIA6522::reset(){
 	pcr=0;
 	ifr=0;
 	ier=0;
+	
+	
 }
 
 uint8_t VIA6522::ext_get_sr(){
@@ -27,9 +29,13 @@ uint8_t VIA6522::ext_get_sr(){
 }
 uint8_t VIA6522::reg_read(uint16_t in){
 		REG6522_R addr = static_cast<REG6522_R>(in);
-		std::cout << "reg read " << std::hex << in<<std::endl;
 		switch(addr){
-
+			case IRAR: 
+				return porta;
+				break;
+			case IRBR:
+				return portb;
+				break;
 			case IFRR:
 			{
 				//ifr clears when bit is 1, except bit 7
@@ -49,7 +55,7 @@ uint8_t VIA6522::reg_read(uint16_t in){
 				break;
 				
 			default:
-				std::cout <<"unimplemented VIA reg " << std::hex<<in << std::endl;
+				//std::cout <<"unimplemented VIA reg " << std::hex<<in << std::endl;
 				break;
 		}
 		return 0xff;
@@ -86,6 +92,39 @@ void VIA6522::ext_write_porta(uint8_t active_bits, uint8_t data){
 	return;
 }
 
+void VIA6522::on_cb2_w(bool st){
+	if(cb2_w_cb != nullptr){ 
+		cb2_w_cb(st);
+	}
+	
+}
+void VIA6522::on_ca2_w(bool st){
+
+	if(ca2_w_cb != nullptr){ 
+		ca2_w_cb(st);
+	}
+}
+
+void VIA6522::set_cb2_w_cb(void(*in)(bool)){
+	cb2_w_cb = in;
+	
+}
+void VIA6522::set_ca2_w_cb(void(*in)(bool)){
+	ca2_w_cb = in;
+
+}
+
+void VIA6522::set_pb_w_cb(void(*in)(uint8_t)){
+	pb_w_cb = in;
+
+}
+
+void VIA6522::on_pb_w(uint8_t in){
+	if(pb_w_cb != nullptr){
+		pb_w_cb(in);
+	}
+}	
+
 void VIA6522::reg_write(uint16_t in, uint8_t data){
 	REG6522_W addr = static_cast<REG6522_W>(in);
 	switch(addr){
@@ -96,12 +135,44 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 		case ORBW:
 			portb = data;
 			ifr &= ~(IFR_CB1); //clear ca1 int
+			on_pb_w(data);
 			break;
 		case DDRBW:
 			ddrb = data;
 			break;
 		case DDRAW:
 			ddra = data;
+			break;
+		case PCRW:
+		{
+			pcr = data;
+			
+			PCR_CX_MODES b_bits = static_cast<PCR_CX_MODES>((pcr >> 5) & 0x7);
+			PCR_CX_MODES a_bits = static_cast<PCR_CX_MODES>((pcr >> 1) & 0x7);
+			switch(b_bits){
+				case CX2_HIGH:
+					on_cb2_w(true);
+					break;
+				case CX2_LOW:
+					on_cb2_w(false);
+					break;
+				default:
+					//std::cout << "unimplemented PCR write CB " << b_bits << std::endl;
+					break;
+			}
+			
+			switch(a_bits){
+				case CX2_HIGH:
+					on_ca2_w(true);
+					break;
+				case CX2_LOW:
+					on_ca2_w(false);
+					break;
+				default:
+				//	std::cout << "unimplemented PCR write Ca " << a_bits <<  std::endl;
+					break;
+			}
+		}
 			break;
 		case IFRW:
 			//ifr clears when bit is 1, except bit 7
@@ -114,7 +185,7 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 			ifr |= 0b100; //IFR SR data transfer complete bit, TODO: accurate timing of spi
 			break;
 		default:
-			std::cout <<"unimplemented VIA reg " << std::hex <<in << std::endl;
+		//	std::cout <<"unimplemented VIA reg " << std::hex <<in << std::endl;
 			break;
 		
 		

@@ -9477,7 +9477,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "W65C22NxP"
+		(property "Value" "VIA0"
 			(at 127.8733 53.34 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11433,7 +11433,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "W65C22NxP"
+		(property "Value" "VIA1"
 			(at 185.0233 80.01 0)
 			(show_name no)
 			(do_not_autoplace no)

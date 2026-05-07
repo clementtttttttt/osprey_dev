@@ -2,7 +2,6 @@
 #include <string>
 #include <iostream>
 #include <SDL.h>
-#include <simavr/sim_avr.h>
 #include <simavr/sim_elf.h>
 #include <simavr/avr_ioport.h>
 #include <simavr/avr_spi.h>
@@ -47,6 +46,15 @@ InitError::InitError( const std::string & m ) :
 InitError::~InitError() throw()
 {
 }
+
+
+const static int LOW_MEM_SZ = 32768;
+const static int ROM_SZ = 32768;
+
+uint8_t low_mem[LOW_MEM_SZ];
+uint8_t rom[ROM_SZ];
+VIA6522 VIA0;
+VIA6522 VIA1;
 
 const char * InitError::what() const throw()
 {
@@ -116,6 +124,9 @@ int ticks = 0;
 void via_din_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
 
 }
+void via_ca1_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
+	VIA1.ext_set_ca1();
+}
 
 static const char * irq_names[IRQ_UART_PTY_COUNT] = {
 	[IRQ_UART_PTY_BYTE_IN] = "8<uart_pty.in",
@@ -138,13 +149,6 @@ static void spi_hook(
 //    std::cout << "(SPI)"<<(char)value;
 }
 
-const static int LOW_MEM_SZ = 32768;
-const static int ROM_SZ = 32768;
-
-uint8_t low_mem[LOW_MEM_SZ];
-uint8_t rom[ROM_SZ];
-VIA6522 VIA0;
-VIA6522 VIA1;
 
 uint8_t rmf(uint16_t addr){
 
@@ -155,11 +159,11 @@ uint8_t rmf(uint16_t addr){
     }
     
     if(addr >=0x8000 && addr < 0xc000){
-		if(!(addr & 0x10)){ //a4 not set == via1
-			return VIA1.reg_read((size_t)(addr&0xf));
-		}
-		if((addr & 0x10)){ //a4 set == via0
+		if(!(addr & 0x10)){ //a4 not set == via0
 			return VIA0.reg_read((size_t)(addr&0xf));
+		}
+		if((addr & 0x10)){ //a4 set == via1
+			return VIA1.reg_read((size_t)(addr&0xf));
 		}
 	}
 
@@ -178,17 +182,31 @@ void wmf(uint16_t addr, uint8_t data){
     }
 	
 	if(addr >=0x8000 && addr < 0xc000){
-		if(!(addr & 0x10)){ //a4 not set == via1
-			VIA1.reg_write((size_t)(addr&0xf), data);
-		}
-		if((addr & 0x10)){ //a4 set == via0
+		if(!(addr & 0x10)){ //a4 not set == via0
 			VIA0.reg_write((size_t)(addr&0xf), data);
+		}
+		else if((addr & 0x10)){ //a4 set == via1
+			VIA1.reg_write((size_t)(addr&0xf), data);
 		}
 	}
 
 }
 
+void via1_ca2_cb(bool in){
 
+	avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 5);
+	avr_raise_irq(pin, in);
+	std::cout << "ca2 pulled to " << (int)in << std::endl;
+}
+
+void via0_pbw_cb(uint8_t in){
+	for (int i = 0; i < 8; i++) {
+		avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('C'), i);
+		avr_raise_irq(pin, (in >> i) & 1);
+	}
+	
+	//std::cout << "PB WRITE " << in << std::endl;
+}
 
 avr_irq_t *ser_irq;
 avr_irq_t *spi_irq;
@@ -215,7 +233,11 @@ int main( int argc, char * argv[] )
 			avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('A'), i),
 			via_din_hook,
 			NULL);
-
+			
+		avr_irq_register_notify(
+			avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 4),
+			via_ca1_hook,
+			NULL);
     //connect serial
     ser_irq = avr_alloc_irq(&sio->irq_pool, 0, IRQ_UART_PTY_COUNT, irq_names);
 	avr_irq_register_notify(ser_irq + IRQ_UART_PTY_BYTE_IN, ser_hook, (void*)1234);
@@ -226,6 +248,12 @@ int main( int argc, char * argv[] )
     spi_irq = avr_alloc_irq(&sio->irq_pool, 0, 1, &spi_names);
 	avr_irq_register_notify(spi_irq, spi_hook, (void*)1234);
 
+
+	//connect via1 ca2 
+	VIA1.set_ca2_w_cb(via1_ca2_cb);
+	
+	//conect via0 callbacks
+	VIA0.set_pb_w_cb(via0_pbw_cb);
 
     uint32_t f=0; //flag for avr uart
     //disable studio dump

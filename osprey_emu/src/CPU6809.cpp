@@ -100,7 +100,7 @@ uint16_t CPU6809::ea_extended() {
 
 uint16_t CPU6809::ea_indexed() {
     uint8_t post = read_mem(regs_16[reg_pc]++);
-    uint8_t reg_sel = (post >> 6) & 3;
+    uint8_t reg_sel = (post >> 5) & 0b11;
     bool indirect = (post & 0x10) != 0;
     uint8_t mode = post & 0x0F;
 
@@ -108,6 +108,17 @@ uint16_t CPU6809::ea_indexed() {
     uint16_t* base = baseregs[reg_sel];
 
     uint16_t ea = 0;
+    
+    if(!(post & 0x80)){
+		//5 bit off
+		
+		char signed_off = (post & 0x1f);
+		if(signed_off & 0x10) signed_off |= 0xe0;
+		else{
+			signed_off &= 0x1f;
+		}
+		ea = *base + signed_off;
+	}
 
     switch (mode) {
         case 0x00: ea = (*base)++; break;
