@@ -307,11 +307,13 @@ wait_in
 	beq 1b	;b if flag not set
 	rts
 
-wait_ack lda  #$d
-	sta VIA1_PCR
+wait_ack 
 	
 	lda #0b10	;clear ifr flag
 	sta VIA1_IFR
+	
+	lda  #$d
+	sta VIA1_PCR
 	
 1	lda VIA1_IFR	;load from interrupt flag reg
 	bita #0b10	;is ca1 flag set

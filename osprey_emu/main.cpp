@@ -13,6 +13,8 @@
 #include "PS2Keyboard.h"
 
 #include <fstream>
+#include <unistd.h>
+#include <fcntl.h>
 
 enum {
 	IRQ_UART_PTY_BYTE_IN = 0,
@@ -124,7 +126,7 @@ void SDL::draw()
 int ticks = 0;
 
 void via_din_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
-
+	std::cout <<"PORTA WRITE " <<std::hex<< value << std::endl;
 }
 void via1_ca1_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
 	if(value == 1){
@@ -241,7 +243,7 @@ void via0_pbw_cb(uint8_t in){
 		avr_raise_irq(pin, (in >> i) & 1);
 	}
 	
-	//std::cerr << "PB WRITE " << (uint16_t)in << std::endl;
+	std::cerr << "PB WRITE " << (uint16_t)in << std::endl;
 }
 CPU6809 sys_cpu(rmf, wmf);
 
@@ -259,6 +261,8 @@ int main( int argc, char * argv[] )
 {
     SDL sdl( SDL_INIT_VIDEO | SDL_INIT_TIMER );
 
+    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
+
     lcd = new ILI9488(sdl.get_fb());
 	//lcd->set_debug(true);
 
@@ -275,11 +279,12 @@ int main( int argc, char * argv[] )
     //connect all pins on port a to 6522 (atmega write, 6522 in)
 
 
-	for (int i = 0; i < 8; i++)
+	for (int i = 0; i < 8; i++){
 		avr_irq_register_notify(
 			avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('A'), i),
 			via_din_hook,
 			NULL);
+	}
 			
 		avr_irq_register_notify(
 			avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 4),
@@ -352,6 +357,14 @@ int main( int argc, char * argv[] )
     while(sdl.poll_events(&ps2kbd)){
         ++ticks;
 
+
+        {
+            char c;
+            while(read(STDIN_FILENO, &c, 1) > 0){
+                avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_UART_GETIRQ('0'), UART_IRQ_INPUT);
+                avr_raise_irq(pin, c);
+            }
+        }
 
         for(int i=0;i<AVR_FREQ/60;++i){
             avr_run(sio);

@@ -51,7 +51,7 @@ uint8_t VIA6522::reg_read(uint16_t in){
 					ret |= 0x80; //ifr bit 7 is set if any of the other bits are set
 				} 
 				else{
-					ret &= 0x80;
+					ret &= 0x7f;
 				}
 				
 				return ifr;
