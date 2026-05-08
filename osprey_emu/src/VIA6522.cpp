@@ -1,7 +1,5 @@
 #include <VIA6522.h>
 #include <iostream>
-
-#define VIA_DBG
 VIA6522::VIA6522(){
 	t1count = 0;
 	t2count = 0;

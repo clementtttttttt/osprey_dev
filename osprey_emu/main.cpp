@@ -1,6 +1,8 @@
 #include <exception>
 #include <string>
 #include <iostream>
+#include <cstdlib>
+#include <cstdio>
 #include <SDL.h>
 #include <simavr/sim_elf.h>
 #include <simavr/avr_ioport.h>
@@ -25,6 +27,10 @@ enum {
 
 
 avr_t * sio = NULL;
+int ticks = 0;
+bool debug_step = false;
+bool debug_advance = false;
+
 class InitError : public std::exception
 {
     std::string msg;
@@ -108,6 +114,17 @@ bool SDL::poll_events(PS2Keyboard* kbd){
         if(ev.type == SDL_QUIT){
             return false;
         }
+        if(ev.type == SDL_KEYDOWN && !ev.key.repeat){
+            if(ev.key.keysym.scancode == SDL_SCANCODE_F1){
+                debug_step = !debug_step;
+                std::cout << "[DEBUG] " << (debug_step ? "STEP MODE (F2=step, F1=run)" : "RUNNING") << std::endl;
+                continue;
+            }
+            if(ev.key.keysym.scancode == SDL_SCANCODE_F2){
+                debug_advance = true;
+                continue;
+            }
+        }
         if(kbd) kbd->handle_event(ev);
     }
     return true;
@@ -123,7 +140,60 @@ void SDL::draw()
 
 }
 
-int ticks = 0;
+static void avr_debug_wait_advance() {
+	while(debug_step && !debug_advance){
+		SDL_PumpEvents();
+		SDL_Event ev;
+		while(SDL_PollEvent(&ev)){
+			if(ev.type == SDL_QUIT) exit(0);
+			if(ev.type == SDL_KEYDOWN && !ev.key.repeat){
+				if(ev.key.keysym.scancode == SDL_SCANCODE_F1){
+					debug_step = false;
+					std::cout << "[DEBUG] RUNNING" << std::endl;
+				}
+				if(ev.key.keysym.scancode == SDL_SCANCODE_F2){
+					debug_advance = true;
+				}
+			}
+		}
+		SDL_Delay(10);
+	}
+	debug_advance = false;
+}
+
+	static void avr_debug_tick(int i) {
+	uint8_t sreg = sio->data[0x5f];
+	uint8_t gicr = sio->data[0x5b];
+	uint8_t mcucr = sio->data[0x55];
+	uint8_t ddra = sio->data[0x3a], pina = sio->data[0x39];
+	uint8_t ddrb = sio->data[0x37], pinb = sio->data[0x36];
+	uint8_t ddrc = sio->data[0x34], pinc = sio->data[0x33];
+	uint8_t ddrd = sio->data[0x31], pind = sio->data[0x30];
+				    std::cout.clear();
+
+	std::cout << "[AVR] tick=" << std::dec << ticks << ":" << i
+	          << " pc=0x" << std::hex << sio->pc
+	          << " sreg=0x" << (int)sreg << " ["
+	          << ((sreg & 0x80) ? 'I' : '-')
+	          << ((sreg & 0x40) ? 'T' : '-')
+	          << ((sreg & 0x20) ? 'H' : '-')
+	          << ((sreg & 0x10) ? 'S' : '-')
+	          << ((sreg & 0x08) ? 'V' : '-')
+	          << ((sreg & 0x04) ? 'N' : '-')
+	          << ((sreg & 0x02) ? 'Z' : '-')
+	          << ((sreg & 0x01) ? 'C' : '-')
+	          << "]"
+	          << " gicr=0x" << (int)gicr << " INT1=" << ((gicr & 0x80) ? 'Y' : 'N')
+	          << " mcucr=0x" << (int)mcucr << " ISC1=" << ((mcucr >> 2) & 3)
+	          << " ddra=0x" << (int)ddra << "/pin=0x" << (int)pina
+	          << " ddrb=0x" << (int)ddrb << "/pin=0x" << (int)pinb
+	          << " ddrc=0x" << (int)ddrc << "/pin=0x" << (int)pinc
+	          << " ddrd=0x" << (int)ddrd << "/pin=0x" << (int)pind
+	          << std::dec << std::endl;
+	if(std::cout.bad())  std::cerr << "[DEBUG] cout badbit set!" << std::endl;
+	if(std::cout.fail()) std::cerr << "[DEBUG] cout failbit set!" << std::endl;
+
+}
 
 void via_din_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
 	std::cout <<"PORTA WRITE " <<std::hex<< value << std::endl;
@@ -207,7 +277,10 @@ uint8_t rmf(uint16_t addr){
         //TODO: pagesel selection
         return rom[mapped_addr + 0x4000];
     }
-    else return 0xff;
+    
+    
+    
+    return 0xff;
 }
 
 void wmf(uint16_t addr, uint8_t data){
@@ -230,13 +303,23 @@ void via0_ca2_cb(bool in){
 
 	avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 3);
 	avr_raise_irq(pin, in);
+
+	if(in) sio->data[AVR_IO_TO_DATA(0x10)] |=  (1 << 3);
+	else   sio->data[AVR_IO_TO_DATA(0x10)] &= ~(1 << 3);
+
+	
 				std::cout << "0 CA2! " << in << std::endl;
+		if(in == false){
+		//	debug_step = true;
+
+		}
 }
 
 void via1_ca2_cb(bool in){
 
 	avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 5);
 	avr_raise_irq(pin, in);
+
 					std::cout << "1 CA2! " << in << std::endl;
 }
 
@@ -246,7 +329,7 @@ void via0_pbw_cb(uint8_t in){
 		avr_raise_irq(pin, (in >> i) & 1);
 	}
 	
-	std::cerr << "PB WRITE " << (uint16_t)in << std::endl;
+	std::cout << "PB WRITE " << (uint16_t)in << std::endl;
 }
 CPU6809 sys_cpu(rmf, wmf);
 
@@ -262,6 +345,7 @@ avr_irq_t *spi_irq;
 
 int main( int argc, char * argv[] )
 {
+
     SDL sdl( SDL_INIT_VIDEO | SDL_INIT_TIMER );
 
     fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
@@ -331,7 +415,7 @@ int main( int argc, char * argv[] )
 		avr_connect_irq(src, ser_irq);
 	}
 
-    sio->data[AVR_IO_TO_DATA(0x10)] = 0xff; //set portd to fully high
+    sio->data[AVR_IO_TO_DATA(0x10)] = 0x00; //portd pull-ups disabled
 
 	avr_irq_t * spisrc = avr_io_getirq(sio, AVR_IOCTL_SPI_GETIRQ(0), SPI_IRQ_OUTPUT);
 	avr_connect_irq(spisrc, spi_irq);
@@ -364,6 +448,7 @@ int main( int argc, char * argv[] )
         {
             char c;
             while(read(STDIN_FILENO, &c, 1) > 0){
+
                 avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_UART_GETIRQ('0'), UART_IRQ_INPUT);
                 avr_raise_irq(pin, c);
             }
@@ -372,10 +457,18 @@ int main( int argc, char * argv[] )
         for(int i=0;i<AVR_FREQ/60;++i){
             avr_run(sio);
             ps2kbd.tick(sio);
+            if(debug_step){
+				                        avr_debug_tick(i);
+
+				 	avr_debug_wait_advance();
+
+            }
             if(i % 8 == 0){ //2 mhz for 6809
+
 				sys_cpu.run_cycles(1);
 				VIA0.phi2_tick();
 				VIA1.phi2_tick();
+				
 
 			}
         }

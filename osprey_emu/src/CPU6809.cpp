@@ -3,8 +3,7 @@
 
 //#define CPU6809_DEBUG
 #ifdef CPU6809_DEBUG
-#include <cstdio>
-#include <cstring>
+#include <iomanip>
 static const char* mnemonic_table[256] = {
     "NEG",    nullptr,  nullptr,  "COM",    "LSR",    nullptr,  "ROR",    "ASR",
     "LSL",    "ROL",    "DEC",    nullptr,  "INC",    "TST",    "JMP",    "CLR",
@@ -759,16 +758,19 @@ void CPU6809::page_2() {
         m_cycle_adj = taken ? 5 : 4;
 #ifdef CPU6809_DEBUG
         uint16_t target = base_pc + 3 + off;
-        fprintf(stderr, "              10 %02X %-6s $%04X  (%s)\n", op,
-                lb_names[op & 0x0F] ? lb_names[op & 0x0F] : "???",
-                target, taken ? "taken" : "not taken");
+        std::cout << "              10 " << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << (int)op
+                  << " " << std::left << std::setw(6) << (lb_names[op & 0x0F] ? lb_names[op & 0x0F] : "???") << std::right
+                  << " $" << std::setw(4) << target
+                  << "  (" << (taken ? "taken" : "not taken") << ")"
+                  << std::dec << std::endl;
 #endif
         return;
     }
 
     if (op == 0x3F) {
 #ifdef CPU6809_DEBUG
-        fprintf(stderr, "              10 3F SWI2\n");
+        std::cout << "              10 3F SWI2" << std::endl;
+    
 #endif
         op_swi2(); m_cycle_adj = 10; return; }
 
@@ -807,7 +809,8 @@ void CPU6809::page_3() {
     uint8_t op = read_mem(regs_16[reg_pc]++);
     if (op == 0x3F) {
 #ifdef CPU6809_DEBUG
-        fprintf(stderr, "              11 3F SWI3\n");
+        std::cout << "              11 3F SWI3" << std::endl;
+    
 #endif
         op_swi3(); m_cycle_adj = 10; return; }
 
@@ -848,11 +851,27 @@ void (CPU6809::*CPU6809::opcode_table[MAX_OPCODE])() = {
 
 #ifdef CPU6809_DEBUG
 static void trace_regs(uint8_t cc, uint16_t d, uint16_t x, uint16_t y, uint16_t u, uint16_t s, uint16_t pc) {
-    fprintf(stderr, "  D=%04X X=%04X Y=%04X U=%04X S=%04X CC=%02X [%c%c%c%c%c%c%c%c]\n",
-        d, x, y, u, s, cc,
-        (cc & 0x80) ? 'E' : '-', (cc & 0x40) ? 'F' : '-', (cc & 0x20) ? 'H' : '-',
-        (cc & 0x10) ? 'I' : '-', (cc & 0x08) ? 'N' : '-', (cc & 0x04) ? 'Z' : '-',
-        (cc & 0x02) ? 'V' : '-', (cc & 0x01) ? 'C' : '-');
+    (void)pc;
+    std::cout.clear();
+    std::ios::fmtflags saved_flags = std::cout.flags();
+    char saved_fill = std::cout.fill();
+    std::cout << "  D=" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << d
+              << " X=" << std::setw(4) << x
+              << " Y=" << std::setw(4) << y
+              << " U=" << std::setw(4) << u
+              << " S=" << std::setw(4) << s
+              << " CC=" << std::setw(2) << (int)cc
+              << " [" << ((cc & 0x80) ? 'E' : '-')
+              << ((cc & 0x40) ? 'F' : '-')
+              << ((cc & 0x20) ? 'H' : '-')
+              << ((cc & 0x10) ? 'I' : '-')
+              << ((cc & 0x08) ? 'N' : '-')
+              << ((cc & 0x04) ? 'Z' : '-')
+              << ((cc & 0x02) ? 'V' : '-')
+              << ((cc & 0x01) ? 'C' : '-') << "]"
+              << std::dec << std::endl;
+    std::cout.flags(saved_flags);
+    std::cout.fill(saved_fill);
 }
 
 static const char* am_suffix(uint8_t ir) {
@@ -877,7 +896,7 @@ void CPU6809::run_cycles(uint32_t c) {
             m_total_cycles += 5;
             c -= (c > 5) ? 5 : c;
 #ifdef CPU6809_DEBUG
-            fprintf(stderr, "\n=== RESET -> PC=%04X ===\n\n", regs_16[reg_pc]);
+            std::cout << "\n=== RESET -> PC=" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << regs_16[reg_pc] << " ===\n" << std::dec << std::endl;
 #endif
             continue;
         }
@@ -898,7 +917,7 @@ void CPU6809::run_cycles(uint32_t c) {
             m_total_cycles += 7;
             c -= (c > 7) ? 7 : c;
 #ifdef CPU6809_DEBUG
-            fprintf(stderr, "\n=== IRQ -> PC=%04X ===\n\n", regs_16[reg_pc]);
+            std::cout << "\n=== IRQ -> PC=" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << regs_16[reg_pc] << " ===\n" << std::dec << std::endl;
 #endif
             continue;
         }
@@ -908,21 +927,35 @@ void CPU6809::run_cycles(uint32_t c) {
 
 #ifdef CPU6809_DEBUG
         uint16_t save_pc = regs_16[reg_pc] - 1;
+        std::cout.clear();
         const char* mn = mnemonic_table[ir];
         if (mn) {
-            fprintf(stderr, "%04X: %02X %-6s%s %x ", save_pc, ir, mn, am_suffix(ir), read_mem(regs_16[reg_pc]));
+            std::cout << std::hex << std::uppercase << std::setfill('0')
+                      << std::setw(4) << save_pc << ": "
+                      << std::setw(2) << (int)ir << " "
+                      << std::left << std::setw(6) << mn << std::right
+                      << am_suffix(ir) << " "
+                      << std::nouppercase << (int)read_mem(regs_16[reg_pc]);
         } else if (ir >= 0x21 && ir <= 0x2F) {
-            fprintf(stderr, "%04X: %02X %-6s  [rel]", save_pc, ir, "???");
+            std::cout << std::hex << std::uppercase << std::setfill('0')
+                      << std::setw(4) << save_pc << ": "
+                      << std::setw(2) << (int)ir << " "
+                      << std::left << std::setw(6) << "???"
+                      << std::right << " [rel]";
         } else {
-            fprintf(stderr, "%04X: %02X %-6s", save_pc, ir, "???");
+            std::cout << std::hex << std::uppercase << std::setfill('0')
+                      << std::setw(4) << save_pc << ": "
+                      << std::setw(2) << (int)ir << " "
+                      << std::left << std::setw(6) << "???"
+                      << std::right;
         }
 
         switch (ir >> 4) {
-            case 0x0: { uint8_t b = ir & 0x0f ? read_mem(regs_16[reg_pc]) : 0; fprintf(stderr, " $%02X", dp); fprintf(stderr, "%02X", b); } break;
-            case 0x2: { uint8_t b = read_mem(regs_16[reg_pc]); if (ir != 0x21) fprintf(stderr, " $%04X", save_pc + 2 + (int8_t)b); } break;
-            case 0x3: if (ir == 0x34 || ir == 0x35 || ir == 0x36 || ir == 0x37 || ir == 0x3C) { fprintf(stderr, " #$%02X", read_mem(regs_16[reg_pc])); } break;
-            case 0x7: case 0xB: case 0xF: { uint8_t h = read_mem(regs_16[reg_pc]), l = read_mem(regs_16[reg_pc] + 1); fprintf(stderr, " $%02X%02X", h, l); } break;
-            case 0x8: case 0xC: fprintf(stderr, " #$%02X", read_mem(regs_16[reg_pc])); break;
+            case 0x0: { uint8_t b = ir & 0x0f ? read_mem(regs_16[reg_pc]) : 0; std::cout << " $" << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << (int)dp << std::setw(2) << (int)b; } break;
+            case 0x2: { uint8_t b = read_mem(regs_16[reg_pc]); if (ir != 0x21) std::cout << " $" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << (uint16_t)(save_pc + 2 + (int8_t)b); } break;
+            case 0x3: if (ir == 0x34 || ir == 0x35 || ir == 0x36 || ir == 0x37 || ir == 0x3C) { std::cout << " #$" << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << (int)read_mem(regs_16[reg_pc]); } break;
+            case 0x7: case 0xB: case 0xF: { uint8_t h = read_mem(regs_16[reg_pc]), l = read_mem(regs_16[reg_pc] + 1); std::cout << " $" << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << (int)h << std::setw(2) << (int)l; } break;
+            case 0x8: case 0xC: std::cout << " #$" << std::hex << std::uppercase << std::setfill('0') << std::setw(2) << (int)read_mem(regs_16[reg_pc]); break;
             default: break;
         }
 #endif
@@ -933,7 +966,7 @@ void CPU6809::run_cycles(uint32_t c) {
         }
 #ifdef CPU6809_DEBUG
         else {
-            fprintf(stderr, " (UNDEF)");
+            std::cout << " (UNDEF)";
         }
         trace_regs(cc, regs_16[reg_d], regs_16[reg_x], regs_16[reg_y],
                    regs_16[reg_u], regs_16[reg_s], regs_16[reg_pc]);
