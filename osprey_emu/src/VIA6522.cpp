@@ -1,5 +1,7 @@
 #include <VIA6522.h>
 #include <iostream>
+
+#define VIA_DBG
 VIA6522::VIA6522(){
 	t1count = 0;
 	t2count = 0;
@@ -20,7 +22,10 @@ void VIA6522::reset(){
 	pcr=0;
 	ifr=0;
 	ier=0;
-	
+	ca2 = false;
+	ca1 = true;
+	cb2 = false;
+	cb1 = false;
 	
 }
 
@@ -35,9 +40,15 @@ uint8_t VIA6522::reg_read(uint16_t in){
 			case DDRAR:
 				return ddra;
 			case IRAR: 
+				ifr &= ~IFR_CA1;
+				
+							if(((pcr >> 1) & 0b111) == 0b101){
+				ca2_low_counter = 1;
+			} 
 				return porta;
 				break;
 			case IRBR:
+				ifr &= ~IFR_CB1;
 				return portb;
 				break;
 			case IERR:
@@ -63,6 +74,10 @@ uint8_t VIA6522::reg_read(uint16_t in){
 			case ACRR:
 				return acr.raw;
 				break;
+			case PCRR:
+				return pcr;
+				break;
+
 
 		}
 									#ifdef VIA_DBG
@@ -86,8 +101,21 @@ void VIA6522::ext_write_portb(uint8_t active_bits, uint8_t data){
 	return;
 }
 
-void VIA6522::ext_set_ca1(){
-	ifr |= IFR_CA1;
+void VIA6522::ext_set_ca1(uint32_t v){
+	if(pcr & 1){
+		if(ca1 == false && v){
+			fire_irq(IFR_CA1);
+			ifr |= IFR_CA1;
+		}
+	}
+	else{
+		if(ca1 == true && !v){
+			fire_irq(IFR_CA1);
+						ifr |= IFR_CA1;
+
+		}
+	}
+	ca1 = (v != 0);
 }
 
 
@@ -144,7 +172,7 @@ void VIA6522::on_pb_w(uint8_t in){
 void VIA6522::fire_irq(uint8_t mode){
 	ifr |= mode;
 	
-	if(on_irq_cb != nullptr){
+	if(on_irq_cb != nullptr && (mode & ier)){
 		on_irq_cb();
 	}
 }
@@ -174,6 +202,17 @@ void VIA6522::phi2_tick(){
 		
 	}
 	
+	if(ca2_low_counter){
+		if(ca2_low_counter == 1){
+					on_ca2_w(false);
+		}
+		--ca2_low_counter;
+		
+		if(ca2_low_counter == 0){
+			on_ca2_w(true);
+		}
+	}
+	
 }
 
 void VIA6522::reg_write(uint16_t in, uint8_t data){
@@ -182,6 +221,11 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 		case ORAW:
 			porta = data;
 			ifr &= ~(IFR_CA1); //clear ca1 int
+			
+			if(((pcr >> 1) & 0b111) == 0b101){
+				ca2_low_counter = 1;
+			} 
+			
 			break;
 		case ORBW:
 			portb = data;
@@ -253,12 +297,14 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 		case ACRW:
 			acr.raw = data;
 			break;
+		default:
+								#ifdef VIA_DBG
+
+			std::cout <<"unimplemented VIA reg write " << std::hex <<in << std::endl;
+							#endif
+			break;
 		
 		
 	}
-						#ifdef VIA_DBG
 
-			std::cout <<"unimplemented VIA reg " << std::hex <<in << std::endl;
-							#endif
-	
 }

@@ -98,6 +98,8 @@ class VIA6522{
 	
 	bool cb2;
 	bool ca2;
+	bool ca1;
+	bool cb1;
 	void (*cb2_w_cb)(bool st);
 	void (*ca2_w_cb)(bool st);
 
@@ -123,6 +125,8 @@ class VIA6522{
 		SR_SHIFT_OUT_CLK_CB1	
 	};
 	void fire_irq(uint8_t in);
+	
+	int ca2_low_counter;
 
 public:
 
@@ -136,7 +140,7 @@ public:
 	void ext_write_portb(uint8_t active_bits, uint8_t data);
 	void ext_write_porta(uint8_t active_bits, uint8_t data);
 	
-	void ext_set_ca1();
+	void ext_set_ca1(uint32_t v);
 	
 	void reset();
 	

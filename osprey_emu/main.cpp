@@ -127,17 +127,18 @@ int ticks = 0;
 
 void via_din_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
 	std::cout <<"PORTA WRITE " <<std::hex<< value << std::endl;
+	VIA0.ext_write_porta(0xff, value);
 }
 void via1_ca1_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
-	if(value == 1){
-		VIA1.ext_set_ca1();
-	}
+	
+		VIA1.ext_set_ca1(value);
+		std::cout << "1 CA1! " << value << std::endl;
 }
 
 void via0_ca1_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
-	if(value == 1){
-		VIA0.ext_set_ca1();
-	}
+		VIA0.ext_set_ca1(value);
+			std::cout << "0 CA1! " << value << std::endl;
+
 }
 
 static const char * irq_names[IRQ_UART_PTY_COUNT] = {
@@ -229,12 +230,14 @@ void via0_ca2_cb(bool in){
 
 	avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 3);
 	avr_raise_irq(pin, in);
+				std::cout << "0 CA2! " << in << std::endl;
 }
 
 void via1_ca2_cb(bool in){
 
 	avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 5);
 	avr_raise_irq(pin, in);
+					std::cout << "1 CA2! " << in << std::endl;
 }
 
 void via0_pbw_cb(uint8_t in){
@@ -310,7 +313,7 @@ int main( int argc, char * argv[] )
 	VIA1.set_ca2_w_cb(via1_ca2_cb);
 
 	//connect via0 ca2 
-	VIA0.set_ca2_w_cb(via1_ca2_cb);
+	VIA0.set_ca2_w_cb(via0_ca2_cb);
 	
 
 	//conect via0 callbacks
