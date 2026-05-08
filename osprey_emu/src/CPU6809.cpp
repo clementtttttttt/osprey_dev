@@ -1,10 +1,10 @@
 #include "CPU6809.h"
+#include <iostream>
 
-#define CPU6809_DEBUG
+//#define CPU6809_DEBUG
 #ifdef CPU6809_DEBUG
 #include <cstdio>
 #include <cstring>
-
 static const char* mnemonic_table[256] = {
     "NEG",    nullptr,  nullptr,  "COM",    "LSR",    nullptr,  "ROR",    "ASR",
     "LSL",    "ROL",    "DEC",    nullptr,  "INC",    "TST",    "JMP",    "CLR",
@@ -83,10 +83,10 @@ void CPU6809::spush(uint8_t v) { regs_16[reg_s]--; write_mem(regs_16[reg_s], v);
 uint8_t CPU6809::spop() { uint8_t v = read_mem(regs_16[reg_s]); regs_16[reg_s]++; return v; }
 void CPU6809::upush(uint8_t v) { regs_16[reg_u]--; write_mem(regs_16[reg_u], v); }
 uint8_t CPU6809::upop() { uint8_t v = read_mem(regs_16[reg_u]); regs_16[reg_u]++; return v; }
-void CPU6809::spush16(uint16_t v) { spush(v >> 8); spush(v & 0xff); }
-uint16_t CPU6809::spop16() { uint8_t lo = spop(); return ((uint16_t)spop() << 8) | lo; }
-void CPU6809::upush16(uint16_t v) { upush(v >> 8); upush(v & 0xff); }
-uint16_t CPU6809::upop16() { uint8_t lo = upop(); return ((uint16_t)upop() << 8) | lo; }
+void CPU6809::spush16(uint16_t v) {spush(v & 0xff); spush(v >> 8);  }
+uint16_t CPU6809::spop16() { uint8_t hi = spop(); return ((uint16_t)hi << 8) | spop(); }
+void CPU6809::upush16(uint16_t v) { upush(v & 0xff); upush(v >> 8);}
+uint16_t CPU6809::upop16() { uint8_t hi = upop(); return ((uint16_t)hi << 8) | upop(); }
 
 uint8_t CPU6809::ea_imm8() { return read_mem(regs_16[reg_pc]++); }
 uint16_t CPU6809::ea_imm16() { uint16_t v = read16(regs_16[reg_pc]); regs_16[reg_pc] += 2; return v; }
@@ -99,7 +99,11 @@ uint16_t CPU6809::ea_extended() {
 }
 
 uint16_t CPU6809::ea_indexed() {
+	
     uint8_t post = read_mem(regs_16[reg_pc]++);
+    
+
+    
     uint8_t reg_sel = (post >> 5) & 0b11;
     bool indirect = (post & 0x10) != 0;
     uint8_t mode = post & 0x0F;
@@ -112,32 +116,32 @@ uint16_t CPU6809::ea_indexed() {
     if(!(post & 0x80)){
 		//5 bit off
 		
-		char signed_off = (post & 0x1f);
-		if(signed_off & 0x10) signed_off |= 0xe0;
-		else{
-			signed_off &= 0x1f;
-		}
+		uint16_t signed_off = (post & 0x1f);
+		if(signed_off & 0x10) signed_off |= 0xffe0;
+
 		ea = *base + signed_off;
 	}
+	else{
 
-    switch (mode) {
-        case 0x00: ea = (*base)++; break;
-        case 0x01: ea = *base; *base += 2; break;
-        case 0x02: ea = --(*base); break;
-        case 0x03: *base -= 2; ea = *base; break;
-        case 0x04: ea = *base; break;
-        case 0x05: ea = *base + *regs_8[reg_b]; break;
-        case 0x06: ea = *base + *regs_8[reg_a]; break;
-        case 0x08: ea = *base + (int8_t)read_mem(regs_16[reg_pc]++); break;
-        case 0x09: ea = *base + read16(regs_16[reg_pc]); regs_16[reg_pc] += 2; break;
-        case 0x0B: ea = *base + regs_16[reg_d]; break;
-        case 0x0C: { int8_t off = (int8_t)read_mem(regs_16[reg_pc]++); ea = regs_16[reg_pc] + off; break; }
-        case 0x0D: { int16_t off = (int16_t)read16(regs_16[reg_pc]); regs_16[reg_pc] += 2; ea = regs_16[reg_pc] + off; break; }
-        case 0x0F: ea = read16(regs_16[reg_pc]); regs_16[reg_pc] += 2; break;
-        default: ea = *base; break;
-    }
+		switch (mode) {
+			case 0x00: ea = (*base)++; break;
+			case 0x01: ea = *base; *base += 2; break;
+			case 0x02: ea = --(*base); break;
+			case 0x03: *base -= 2; ea = *base; break;
+			case 0x04: ea = *base; break;
+			case 0x05: ea = *base + *regs_8[reg_b]; break;
+			case 0x06: ea = *base + *regs_8[reg_a]; break;
+			case 0x08: ea = *base + (int8_t)read_mem(regs_16[reg_pc]++); break;
+			case 0x09: ea = *base + read16(regs_16[reg_pc]); regs_16[reg_pc] += 2; break;
+			case 0x0B: ea = *base + regs_16[reg_d]; break;
+			case 0x0C: { int8_t off = (int8_t)read_mem(regs_16[reg_pc]++); ea = regs_16[reg_pc] + off; break; }
+			case 0x0D: { int16_t off = (int16_t)read16(regs_16[reg_pc]); regs_16[reg_pc] += 2; ea = regs_16[reg_pc] + off; break; }
+			case 0x0F: ea = read16(regs_16[reg_pc]); regs_16[reg_pc] += 2; break;
+			default: ea = *base; break;
+		}
 
-    if (indirect) ea = read16(ea);
+		if (indirect) ea = read16(ea);
+	}
     return ea;
 }
 
@@ -496,16 +500,16 @@ void CPU6809::op_pshs() {
     if (m & 0x20) spush16(regs_16[reg_y]);
     if (m & 0x10) spush16(regs_16[reg_x]);
     if (m & 0x08) spush(dp);
-    if (m & 0x04) spush(regs_16[reg_d] >> 8);
-    if (m & 0x02) spush(regs_16[reg_d] & 0xff);
+    if (m & 0x04) spush(*regs_8[reg_b]);
+    if (m & 0x02) spush(*regs_8[reg_a]);
     if (m & 0x01) spush(cc);
 }
 
 void CPU6809::op_puls() {
     uint8_t m = read_mem(regs_16[reg_pc]++);
     if (m & 0x01) cc = spop();
-    if (m & 0x02) *regs_8[reg_b] = spop();
-    if (m & 0x04) *regs_8[reg_a] = spop();
+    if (m & 0x02) *regs_8[reg_a] = spop();
+    if (m & 0x04) *regs_8[reg_b] = spop();
     if (m & 0x08) dp = spop();
     if (m & 0x10) regs_16[reg_x] = spop16();
     if (m & 0x20) regs_16[reg_y] = spop16();
@@ -520,16 +524,16 @@ void CPU6809::op_pshu() {
     if (m & 0x20) upush16(regs_16[reg_y]);
     if (m & 0x10) upush16(regs_16[reg_x]);
     if (m & 0x08) upush(dp);
-    if (m & 0x04) upush(regs_16[reg_d] >> 8);
-    if (m & 0x02) upush(regs_16[reg_d] & 0xff);
+    if (m & 0x04) spush(*regs_8[reg_b]);
+    if (m & 0x02) spush(*regs_8[reg_a]);
     if (m & 0x01) upush(cc);
 }
 
 void CPU6809::op_pulu() {
     uint8_t m = read_mem(regs_16[reg_pc]++);
     if (m & 0x01) cc = upop();
-    if (m & 0x02) *regs_8[reg_b] = upop();
-    if (m & 0x04) *regs_8[reg_a] = upop();
+    if (m & 0x02) *regs_8[reg_a] = upop();
+    if (m & 0x04) *regs_8[reg_b] = upop();
     if (m & 0x08) dp = upop();
     if (m & 0x10) regs_16[reg_x] = upop16();
     if (m & 0x20) regs_16[reg_y] = upop16();
@@ -537,7 +541,28 @@ void CPU6809::op_pulu() {
     if (m & 0x80) regs_16[reg_pc] = upop16();
 }
 
-void CPU6809::op_leax() { regs_16[reg_x] = ea_indexed(); cc &= ~CC_Z; if (regs_16[reg_x] == 0) cc |= CC_Z; }
+void CPU6809::op_leax() {
+    uint8_t pb = read_mem(regs_16[reg_pc]);
+    if (pb == 0x84) {
+        
+		//very crude breakpoint
+		bool quit = false;
+		
+		while(!quit){
+			
+			uint32_t addr;
+			
+			std::cin >>std::hex>> addr;
+			if(addr == 0xffffffff){
+				quit = true;
+			}
+			
+			std::cout << std::hex <<(uint16_t)read_mem(addr)<<std::endl;
+		}
+
+    }
+    regs_16[reg_x] = ea_indexed(); cc &= ~CC_Z; if (regs_16[reg_x] == 0) cc |= CC_Z;
+}
 void CPU6809::op_leay() { regs_16[reg_y] = ea_indexed(); cc &= ~CC_Z; if (regs_16[reg_y] == 0) cc |= CC_Z; }
 void CPU6809::op_leas() { regs_16[reg_s] = ea_indexed(); }
 void CPU6809::op_leau() { regs_16[reg_u] = ea_indexed(); }
@@ -829,7 +854,7 @@ void CPU6809::run_cycles(uint32_t c) {
         uint16_t save_pc = regs_16[reg_pc] - 1;
         const char* mn = mnemonic_table[ir];
         if (mn) {
-            fprintf(stderr, "%04X: %02X %-6s%s", save_pc, ir, mn, am_suffix(ir));
+            fprintf(stderr, "%04X: %02X %-6s%s %x ", save_pc, ir, mn, am_suffix(ir), read_mem(regs_16[reg_pc]));
         } else if (ir >= 0x21 && ir <= 0x2F) {
             fprintf(stderr, "%04X: %02X %-6s  [rel]", save_pc, ir, "???");
         } else {

@@ -55,7 +55,11 @@ uint8_t VIA6522::reg_read(uint16_t in){
 				break;
 				
 			default:
-				//std::cout <<"unimplemented VIA reg " << std::hex<<in << std::endl;
+							#ifdef VIA_DBG
+
+				std::cout <<"unimplemented VIA reg " << std::hex<<in << std::endl;
+								#endif
+
 				break;
 		}
 		return 0xff;
@@ -157,7 +161,10 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 					on_cb2_w(false);
 					break;
 				default:
-					//std::cout << "unimplemented PCR write CB " << b_bits << std::endl;
+				#ifdef VIA_DBG
+					std::cout << "unimplemented PCR write CB " << b_bits << std::endl;
+									#endif
+
 					break;
 			}
 			
@@ -169,7 +176,9 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 					on_ca2_w(false);
 					break;
 				default:
-				//	std::cout << "unimplemented PCR write Ca " << a_bits <<  std::endl;
+				#ifdef VIA_DBG
+					std::cout << "unimplemented PCR write Ca " << a_bits <<  std::endl;
+				#endif
 					break;
 			}
 		}
@@ -185,7 +194,11 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 			ifr |= 0b100; //IFR SR data transfer complete bit, TODO: accurate timing of spi
 			break;
 		default:
-		//	std::cout <<"unimplemented VIA reg " << std::hex <<in << std::endl;
+						#ifdef VIA_DBG
+
+			std::cout <<"unimplemented VIA reg " << std::hex <<in << std::endl;
+							#endif
+
 			break;
 		
 		

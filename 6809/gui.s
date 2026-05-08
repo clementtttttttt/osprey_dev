@@ -264,6 +264,7 @@ gui_toolbar_constructor
 ;s+2 = x
 ;s+4 = y
 gui_toolbar_draw:
+
 	pshs y
 	
 	ldx 1,y

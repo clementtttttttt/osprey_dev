@@ -125,7 +125,9 @@ void via_din_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
 
 }
 void via_ca1_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
-	VIA1.ext_set_ca1();
+	if(value == 1){
+		VIA1.ext_set_ca1();
+	}
 }
 
 static const char * irq_names[IRQ_UART_PTY_COUNT] = {
@@ -138,7 +140,7 @@ static void ser_hook(
 		uint32_t value,
 		void * param){
 
-    std::cout << (char)value;
+    std::cout << (char)value << std::flush;
 }
 
 static void spi_hook(
@@ -157,7 +159,7 @@ uint8_t rmf(uint16_t addr){
     if(addr < LOW_MEM_SZ){
         return low_mem[addr];
     }
-    
+    else
     if(addr >=0x8000 && addr < 0xc000){
 		if(!(addr & 0x10)){ //a4 not set == via0
 			return VIA0.reg_read((size_t)(addr&0xf));
@@ -180,7 +182,7 @@ void wmf(uint16_t addr, uint8_t data){
 	if(addr < LOW_MEM_SZ){
         low_mem[addr] = data;
     }
-	
+	else
 	if(addr >=0x8000 && addr < 0xc000){
 		if(!(addr & 0x10)){ //a4 not set == via0
 			VIA0.reg_write((size_t)(addr&0xf), data);
@@ -196,7 +198,6 @@ void via1_ca2_cb(bool in){
 
 	avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 5);
 	avr_raise_irq(pin, in);
-	std::cout << "ca2 pulled to " << (int)in << std::endl;
 }
 
 void via0_pbw_cb(uint8_t in){
@@ -205,7 +206,7 @@ void via0_pbw_cb(uint8_t in){
 		avr_raise_irq(pin, (in >> i) & 1);
 	}
 	
-	//std::cout << "PB WRITE " << in << std::endl;
+	//std::cerr << "PB WRITE " << (uint16_t)in << std::endl;
 }
 
 avr_irq_t *ser_irq;
