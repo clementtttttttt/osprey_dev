@@ -16,7 +16,7 @@ void VIA6522::reset(){
 	ddrb=0;
 	ddra=0;
 	
-	acr=0;
+	acr.raw=0;
 	pcr=0;
 	ifr=0;
 	ier=0;
@@ -30,11 +30,18 @@ uint8_t VIA6522::ext_get_sr(){
 uint8_t VIA6522::reg_read(uint16_t in){
 		REG6522_R addr = static_cast<REG6522_R>(in);
 		switch(addr){
+			case DDRBR:
+				return ddrb;
+			case DDRAR:
+				return ddra;
 			case IRAR: 
 				return porta;
 				break;
 			case IRBR:
 				return portb;
+				break;
+			case IERR:
+				return ier;
 				break;
 			case IFRR:
 			{
@@ -53,15 +60,16 @@ uint8_t VIA6522::reg_read(uint16_t in){
 			case SRR:
 				return sr;
 				break;
-				
-			default:
-							#ifdef VIA_DBG
+			case ACRR:
+				return acr.raw;
+				break;
+
+		}
+									#ifdef VIA_DBG
 
 				std::cout <<"unimplemented VIA reg " << std::hex<<in << std::endl;
 								#endif
 
-				break;
-		}
 		return 0xff;
 }
 
@@ -123,11 +131,50 @@ void VIA6522::set_pb_w_cb(void(*in)(uint8_t)){
 
 }
 
+void VIA6522::set_on_irq_cb(void(*in)()){
+	on_irq_cb = in;
+}
+
 void VIA6522::on_pb_w(uint8_t in){
 	if(pb_w_cb != nullptr){
 		pb_w_cb(in);
 	}
 }	
+
+void VIA6522::fire_irq(uint8_t mode){
+	ifr |= mode;
+	
+	if(on_irq_cb != nullptr){
+		on_irq_cb();
+	}
+}
+
+void VIA6522::phi2_tick(){
+	switch(static_cast<ACR_T1_MODES>(acr.t1_modes)){
+		case T1_OS:
+			if(t1count > 0){
+				if(--t1count ==0){
+					fire_irq(IFR_T1); //set ifr
+				}
+				
+			}
+		break;
+		case T1_FR:
+		{
+			if(t1count>0){	
+				--t1count;
+			}
+			else{
+				ifr |= 1 << 6;
+				fire_irq(IFR_T1);
+				t1count = t1latch;
+			}
+				
+		}
+		
+	}
+	
+}
 
 void VIA6522::reg_write(uint16_t in, uint8_t data){
 	REG6522_W addr = static_cast<REG6522_W>(in);
@@ -146,6 +193,14 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 			break;
 		case DDRAW:
 			ddra = data;
+			break;
+		case T1_LATCH_LW:
+			t1latch &= 0xff00; //clear low
+			t1latch |= data;
+			break;
+		case T1_LATCH_HW:
+			t1latch &= 0xff; //clear hi
+			t1latch |= ((uint16_t)data<<8);
 			break;
 		case PCRW:
 		{
@@ -188,20 +243,22 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 			data = ~data;
 			ifr &= data;
 			break;
-			
+		case IERW:
+			ier = data;
+			break;
 		case SRW:
 			sr = data;
 			ifr |= 0b100; //IFR SR data transfer complete bit, TODO: accurate timing of spi
 			break;
-		default:
-						#ifdef VIA_DBG
-
-			std::cout <<"unimplemented VIA reg " << std::hex <<in << std::endl;
-							#endif
-
+		case ACRW:
+			acr.raw = data;
 			break;
 		
 		
 	}
+						#ifdef VIA_DBG
+
+			std::cout <<"unimplemented VIA reg " << std::hex <<in << std::endl;
+							#endif
 	
 }

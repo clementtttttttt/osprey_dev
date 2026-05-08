@@ -17,7 +17,18 @@ class VIA6522{
 	uint16_t t2latch;
 	uint8_t sr;
 	
-	uint8_t acr;
+	union acr_t{
+			uint8_t raw;
+			struct{
+					uint8_t pa_l_enable:1;
+					uint8_t pb_l_enable:1;
+					uint8_t sr_modes:3;
+					uint8_t t2_modes:1;
+					uint8_t t1_modes:1;
+			};
+	};
+	
+	acr_t acr;
 	uint8_t pcr;
 	uint8_t ifr;
 	uint8_t ier;
@@ -91,8 +102,34 @@ class VIA6522{
 	void (*ca2_w_cb)(bool st);
 
 	void (*pb_w_cb)(uint8_t st);
+	
+	void (*on_irq_cb)();
+
+	enum ACR_T1_MODES{
+		T1_OS = 0,
+		T1_FR,
+		T1_OS_PB7,
+		T1_FR_PB7
+	};
+	
+	enum ACR_SR_MODES{
+		SR_DISABLED=0,
+		SR_SHIFT_IN_CLK_T2,
+		SR_SHIFT_IN_CLK_PHI2,
+		SR_SHIFT_IN_CLK_CB1,
+		SR_SHIFT_IN_CLK_T2_NOSTOPAFTER8_NOINT,
+		SR_SHIFT_OUT_CLK_T2,
+		SR_SHIFT_OUT_CLK_PHI2,
+		SR_SHIFT_OUT_CLK_CB1	
+	};
+	void fire_irq(uint8_t in);
 
 public:
+
+	
+
+	void phi2_tick();
+	
 	void reg_write(uint16_t addr, uint8_t data);
 	VIA6522();
 	uint8_t reg_read(uint16_t addr);
@@ -114,7 +151,7 @@ public:
 	void set_ca2_w_cb(void(*)(bool));
 
 	void set_pb_w_cb(void(*)(uint8_t));
-
+	void set_on_irq_cb(void(*)());
 };
 
 #endif

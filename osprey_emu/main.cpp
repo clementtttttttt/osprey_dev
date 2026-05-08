@@ -231,6 +231,14 @@ void via0_pbw_cb(uint8_t in){
 	
 	//std::cerr << "PB WRITE " << (uint16_t)in << std::endl;
 }
+CPU6809 sys_cpu(rmf, wmf);
+
+
+void irq_cb(){
+	sys_cpu.assert_irq();
+}
+
+
 
 avr_irq_t *ser_irq;
 avr_irq_t *spi_irq;
@@ -281,6 +289,7 @@ int main( int argc, char * argv[] )
 	
 	//conect via0 callbacks
 	VIA0.set_pb_w_cb(via0_pbw_cb);
+	
 
     uint32_t f=0; //flag for avr uart
     //disable studio dump
@@ -312,8 +321,11 @@ int main( int argc, char * argv[] )
     rom_file.read(reinterpret_cast<char*>(&rom[0]), ROM_SZ);
 
 
-    CPU6809 sys_cpu(rmf, wmf);
 	
+	//connect cpu irq
+	
+	VIA1.set_on_irq_cb(irq_cb);
+	VIA0.set_on_irq_cb(irq_cb);
 
 
     while(sdl.poll_events()){
@@ -324,6 +336,8 @@ int main( int argc, char * argv[] )
             avr_run(sio);
             if(i % 8 == 0){ //2 mhz for 6809
 				sys_cpu.run_cycles(1);
+				VIA0.phi2_tick();
+				VIA1.phi2_tick();
 
 			}
         }
