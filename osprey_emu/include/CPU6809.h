@@ -11,6 +11,7 @@ public:
     virtual ~CPU6809();
     void run_cycles(uint32_t c);
     void assert_irq();
+    uint32_t get_total_cycles() const { return m_total_cycles; }
 
     // Expose flag constants for inline branch helpers
     enum cc_flags {
@@ -35,6 +36,8 @@ private:
     bool reset;
     bool m_irq;
     uint8_t ir;
+    uint32_t m_total_cycles;
+    uint8_t m_cycle_adj;
 
     uint16_t read16(uint16_t addr);
     void write16(uint16_t addr, uint16_t val);

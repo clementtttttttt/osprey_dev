@@ -26,6 +26,7 @@ void VIA6522::reset(){
 	ca1 = true;
 	cb2 = false;
 	cb1 = false;
+	ca2_low_counter = 0;
 	
 }
 
@@ -42,9 +43,10 @@ uint8_t VIA6522::reg_read(uint16_t in){
 			case IRAR: 
 				ifr &= ~IFR_CA1;
 				
-							if(((pcr >> 1) & 0b111) == 0b101){
-				ca2_low_counter = 1;
-			} 
+				if(((pcr >> 1) & 0b111) == 0b101){
+					ca2_low_counter = 8;
+					on_ca2_w(false);
+				} 
 				return porta;
 				break;
 			case IRBR:
@@ -56,10 +58,9 @@ uint8_t VIA6522::reg_read(uint16_t in){
 				break;
 			case IFRR:
 			{
-				//ifr clears when bit is 1, except bit 7
 				uint8_t ret = ifr;
 				if(ret & 0x7f){
-					ret |= 0x80; //ifr bit 7 is set if any of the other bits are set
+					ret |= 0x80;
 				} 
 				else{
 					ret &= 0x7f;
@@ -105,14 +106,11 @@ void VIA6522::ext_set_ca1(uint32_t v){
 	if(pcr & 1){
 		if(ca1 == false && v){
 			fire_irq(IFR_CA1);
-			ifr |= IFR_CA1;
 		}
 	}
 	else{
 		if(ca1 == true && !v){
 			fire_irq(IFR_CA1);
-						ifr |= IFR_CA1;
-
 		}
 	}
 	ca1 = (v != 0);
@@ -203,11 +201,7 @@ void VIA6522::phi2_tick(){
 	}
 	
 	if(ca2_low_counter){
-		if(ca2_low_counter == 1){
-					on_ca2_w(false);
-		}
 		--ca2_low_counter;
-		
 		if(ca2_low_counter == 0){
 			on_ca2_w(true);
 		}
@@ -223,7 +217,8 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 			ifr &= ~(IFR_CA1); //clear ca1 int
 			
 			if(((pcr >> 1) & 0b111) == 0b101){
-				ca2_low_counter = 1;
+				ca2_low_counter = 8;
+				on_ca2_w(false);
 			} 
 			
 			break;

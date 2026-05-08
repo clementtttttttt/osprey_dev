@@ -42,8 +42,28 @@ static const char* mnemonic_table[256] = {
 
 #endif
 
+static const uint8_t cycle_cost[256] = {
+//  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+    6, 1, 1, 6, 6, 1, 6, 6, 6, 6, 6, 1, 6, 6, 3, 6, // 0x
+    1, 1, 2, 4, 1, 1, 5, 9, 1, 2, 3, 1, 3, 2, 8, 6, // 1x
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, // 2x
+    4, 4, 4, 4, 6, 7, 6, 7, 1, 5, 3, 6,20,11, 1,11, // 3x
+    2, 1, 1, 2, 2, 1, 2, 2, 2, 2, 2, 1, 2, 2, 1, 2, // 4x
+    2, 1, 1, 2, 2, 1, 2, 2, 2, 2, 2, 1, 2, 2, 1, 2, // 5x
+    6, 1, 1, 6, 6, 1, 6, 6, 6, 6, 6, 1, 6, 6, 1, 6, // 6x
+    7, 1, 1, 7, 7, 1, 7, 7, 7, 7, 7, 1, 7, 7, 4, 7, // 7x
+    2, 2, 2, 4, 2, 2, 2, 1, 2, 2, 2, 2, 4, 7, 3, 1, // 8x
+    4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4, 4, 6, 7, 5, 6, // 9x
+    5, 5, 5, 6, 5, 5, 5, 6, 5, 5, 5, 5, 6, 7, 5, 6, // Ax
+    5, 5, 5, 6, 5, 5, 5, 6, 5, 5, 5, 5, 7, 8, 6, 7, // Bx
+    2, 2, 2, 4, 2, 2, 2, 1, 2, 2, 2, 2, 4, 1, 4, 1, // Cx
+    4, 4, 4, 5, 4, 4, 4, 5, 4, 4, 4, 4, 4, 5, 4, 5, // Dx
+    5, 5, 5, 6, 5, 5, 5, 6, 5, 5, 5, 5, 5, 7, 5, 6, // Ex
+    5, 5, 5, 6, 5, 5, 5, 6, 5, 5, 5, 5, 5, 8, 6, 7, // Fx
+};
+
 CPU6809::CPU6809(uint8_t(*rmf)(uint16_t addr), void(*wmf)(uint16_t addr, uint8_t byte))
-    : read_mem(rmf), write_mem(wmf), cc(0), dp(0), zero(0), reset(true), m_irq(false), ir(0)
+    : read_mem(rmf), write_mem(wmf), cc(0), dp(0), zero(0), reset(true), m_irq(false), ir(0), m_total_cycles(0), m_cycle_adj(0)
 {
     regs_8[reg_a] = reinterpret_cast<uint8_t*>(&regs_16[reg_d]) + 1;
     regs_8[reg_b] = reinterpret_cast<uint8_t*>(&regs_16[reg_d]);
@@ -623,24 +643,26 @@ void CPU6809::dispatch_30_3f() {
 void CPU6809::dispatch_branch() {
     uint8_t lo = ir & 0x0f;
     int8_t off = ea_rel8();
+    bool taken = false;
     switch (lo) {
-        case 0x0: do_bra8(off); break;
+        case 0x0: do_bra8(off); taken = true; break;
         case 0x1: break;
-        case 0x2: if (!(cc & (CC_C | CC_Z))) do_bra8(off); break;
-        case 0x3: if (cc & (CC_C | CC_Z)) do_bra8(off); break;
-        case 0x4: if (!(cc & CC_C)) do_bra8(off); break;
-        case 0x5: if (cc & CC_C) do_bra8(off); break;
-        case 0x6: if (!(cc & CC_Z)) do_bra8(off); break;
-        case 0x7: if (cc & CC_Z) do_bra8(off); break;
-        case 0x8: if (!(cc & CC_V)) do_bra8(off); break;
-        case 0x9: if (cc & CC_V) do_bra8(off); break;
-        case 0xA: if (!(cc & CC_N)) do_bra8(off); break;
-        case 0xB: if (cc & CC_N) do_bra8(off); break;
-        case 0xC: if (((cc & CC_N) != 0) == ((cc & CC_V) != 0)) do_bra8(off); break;
-        case 0xD: if (((cc & CC_N) != 0) != ((cc & CC_V) != 0)) do_bra8(off); break;
-        case 0xE: if (!(cc & CC_Z) && ((cc & CC_N) != 0) == ((cc & CC_V) != 0)) do_bra8(off); break;
-        case 0xF: if ((cc & CC_Z) || ((cc & CC_N) != 0) != ((cc & CC_V) != 0)) do_bra8(off); break;
+        case 0x2: if (!(cc & (CC_C | CC_Z))) { do_bra8(off); taken = true; } break;
+        case 0x3: if (cc & (CC_C | CC_Z)) { do_bra8(off); taken = true; } break;
+        case 0x4: if (!(cc & CC_C)) { do_bra8(off); taken = true; } break;
+        case 0x5: if (cc & CC_C) { do_bra8(off); taken = true; } break;
+        case 0x6: if (!(cc & CC_Z)) { do_bra8(off); taken = true; } break;
+        case 0x7: if (cc & CC_Z) { do_bra8(off); taken = true; } break;
+        case 0x8: if (!(cc & CC_V)) { do_bra8(off); taken = true; } break;
+        case 0x9: if (cc & CC_V) { do_bra8(off); taken = true; } break;
+        case 0xA: if (!(cc & CC_N)) { do_bra8(off); taken = true; } break;
+        case 0xB: if (cc & CC_N) { do_bra8(off); taken = true; } break;
+        case 0xC: if (((cc & CC_N) != 0) == ((cc & CC_V) != 0)) { do_bra8(off); taken = true; } break;
+        case 0xD: if (((cc & CC_N) != 0) != ((cc & CC_V) != 0)) { do_bra8(off); taken = true; } break;
+        case 0xE: if (!(cc & CC_Z) && ((cc & CC_N) != 0) == ((cc & CC_V) != 0)) { do_bra8(off); taken = true; } break;
+        case 0xF: if ((cc & CC_Z) || ((cc & CC_N) != 0) != ((cc & CC_V) != 0)) { do_bra8(off); taken = true; } break;
     }
+    m_cycle_adj = taken ? 2 : 0;
 }
 
 void CPU6809::dispatch_alu_a() {
@@ -715,6 +737,7 @@ void CPU6809::page_2() {
     uint16_t base_pc = regs_16[reg_pc];
 #endif
     uint8_t op = read_mem(regs_16[reg_pc]++);
+    m_cycle_adj = 5;
 
     if (op >= 0x21 && op <= 0x2F) {
         int16_t off = ea_rel16();
@@ -733,6 +756,7 @@ void CPU6809::page_2() {
             case 0x2E: taken = br_gt(cc); break;             case 0x2F: taken = br_le(cc); break;
         }
         if (taken) do_bra16(off);
+        m_cycle_adj = taken ? 5 : 4;
 #ifdef CPU6809_DEBUG
         uint16_t target = base_pc + 3 + off;
         fprintf(stderr, "              10 %02X %-6s $%04X  (%s)\n", op,
@@ -746,7 +770,7 @@ void CPU6809::page_2() {
 #ifdef CPU6809_DEBUG
         fprintf(stderr, "              10 3F SWI2\n");
 #endif
-        op_swi2(); return; }
+        op_swi2(); m_cycle_adj = 10; return; }
 
     uint8_t hi = (op >> 4) & 0x0f;
     uint8_t lo = op & 0x0f;
@@ -785,8 +809,9 @@ void CPU6809::page_3() {
 #ifdef CPU6809_DEBUG
         fprintf(stderr, "              11 3F SWI3\n");
 #endif
-        op_swi3(); return; }
+        op_swi3(); m_cycle_adj = 10; return; }
 
+    m_cycle_adj = 5;
     uint8_t hi = (op >> 4) & 0x0f;
     uint8_t lo = op & 0x0f;
     bool imm = (hi == 0x8) || (hi == 0xC);
@@ -845,14 +870,18 @@ static const char* am_suffix(uint8_t ir) {
 #endif
 
 void CPU6809::run_cycles(uint32_t c) {
-    (void)c;
-    if (reset) {
-        regs_16[reg_pc] = read16(0xfffe);
-        reset = false;
+    while (c > 0) {
+        if (reset) {
+            regs_16[reg_pc] = read16(0xfffe);
+            reset = false;
+            m_total_cycles += 5;
+            c -= (c > 5) ? 5 : c;
 #ifdef CPU6809_DEBUG
-        fprintf(stderr, "\n=== RESET -> PC=%04X ===\n\n", regs_16[reg_pc]);
+            fprintf(stderr, "\n=== RESET -> PC=%04X ===\n\n", regs_16[reg_pc]);
 #endif
-    } else {
+            continue;
+        }
+
         if (m_irq && !(cc & CC_I)) {
             m_irq = false;
             cc |= CC_E;
@@ -866,12 +895,15 @@ void CPU6809::run_cycles(uint32_t c) {
             spush(cc);
             cc |= CC_I | CC_F;
             regs_16[reg_pc] = read16(0xfff8);
+            m_total_cycles += 7;
+            c -= (c > 7) ? 7 : c;
 #ifdef CPU6809_DEBUG
             fprintf(stderr, "\n=== IRQ -> PC=%04X ===\n\n", regs_16[reg_pc]);
 #endif
-            return;
+            continue;
         }
 
+        m_cycle_adj = 0;
         ir = read_mem(regs_16[reg_pc]++);
 
 #ifdef CPU6809_DEBUG
@@ -906,5 +938,12 @@ void CPU6809::run_cycles(uint32_t c) {
         trace_regs(cc, regs_16[reg_d], regs_16[reg_x], regs_16[reg_y],
                    regs_16[reg_u], regs_16[reg_s], regs_16[reg_pc]);
 #endif
+
+        uint8_t cost = cycle_cost[ir];
+        if (cost == 0) cost = 1;
+        cost += m_cycle_adj;
+        m_total_cycles += cost;
+        if (cost >= c) break;
+        c -= cost;
     }
 }
