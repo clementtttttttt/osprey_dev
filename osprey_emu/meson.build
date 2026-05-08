@@ -30,7 +30,7 @@ elf_lib = cpp.find_library('elf', required: true)
 inc_dir = include_directories('include')
 
 executable('osprey_emu',
-    files('main.cpp', 'src/CPU6809.cpp', 'src/VIA6522.cpp'),
+    files('main.cpp', 'src/CPU6809.cpp', 'src/VIA6522.cpp', 'src/ILI9488.cpp'),
     include_directories: [inc_dir],
     dependencies: [sdl2_dep, simavr_dep, elf_lib],
     cpp_args: ['-Wall'],

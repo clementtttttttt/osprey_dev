@@ -9,6 +9,7 @@
 #include <simavr/avr_uart.h>
 #include "CPU6809.h"
 #include "VIA6522.h"
+#include "ILI9488.h"
 
 #include <fstream>
 
@@ -72,6 +73,7 @@ public:
     virtual ~SDL();
     void draw();
     virtual bool poll_events();
+    uint32_t (*get_fb())[320] { return pixels; }
 
     SDL_Texture *fb;
 };
@@ -143,12 +145,32 @@ static void ser_hook(
     std::cout << (char)value << std::flush;
 }
 
+static ILI9488 *lcd = NULL;
+
 static void spi_hook(
 		struct avr_irq_t * irq,
 		uint32_t value,
 		void * param){
 
-//    std::cout << "(SPI)"<<(char)value;
+	if (lcd) lcd->write((uint8_t)value);
+}
+
+static void dc_hook(
+		struct avr_irq_t * irq,
+		uint32_t value,
+		void * param){
+
+	if (lcd) lcd->set_dc(value != 0);
+
+}
+
+static void cs_hook(
+		struct avr_irq_t * irq,
+		uint32_t value,
+		void * param){
+
+	if (lcd) lcd->set_cs(value != 0);
+
 }
 
 
@@ -216,6 +238,9 @@ int main( int argc, char * argv[] )
 {
     SDL sdl( SDL_INIT_VIDEO | SDL_INIT_TIMER );
 
+    lcd = new ILI9488(sdl.get_fb());
+	lcd->set_debug(true);
+
     elf_firmware_t firm = {{0}};
     elf_read_firmware("test.elf", &firm);
 
@@ -271,6 +296,16 @@ int main( int argc, char * argv[] )
 
 	avr_irq_t * spisrc = avr_io_getirq(sio, AVR_IOCTL_SPI_GETIRQ(0), SPI_IRQ_OUTPUT);
 	avr_connect_irq(spisrc, spi_irq);
+
+	avr_irq_register_notify(
+		avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('B'), 3),
+		dc_hook,
+		NULL);
+
+	avr_irq_register_notify(
+		avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('B'), 4),
+		cs_hook,
+		NULL);
 
     std::ifstream rom_file("rom", std::ios::binary);
     rom_file.read(reinterpret_cast<char*>(&rom[0]), ROM_SZ);
