@@ -10,6 +10,7 @@
 #include "CPU6809.h"
 #include "VIA6522.h"
 #include "ILI9488.h"
+#include "PS2Keyboard.h"
 
 #include <fstream>
 
@@ -72,7 +73,7 @@ public:
     SDL( Uint32 flags = 0 );
     virtual ~SDL();
     void draw();
-    virtual bool poll_events();
+    virtual bool poll_events(PS2Keyboard* kbd = nullptr);
     uint32_t (*get_fb())[320] { return pixels; }
 
     SDL_Texture *fb;
@@ -99,16 +100,14 @@ SDL::~SDL()
     SDL_Quit();
 }
 
-bool SDL::poll_events(){
-
+bool SDL::poll_events(PS2Keyboard* kbd){
     SDL_Event ev;
-
-    SDL_PollEvent(&ev);
-
-    if(ev.type == SDL_QUIT){
-        return false;
+    while(SDL_PollEvent(&ev)){
+        if(ev.type == SDL_QUIT){
+            return false;
+        }
+        if(kbd) kbd->handle_event(ev);
     }
-
     return true;
 }
 void SDL::draw()
@@ -127,9 +126,15 @@ int ticks = 0;
 void via_din_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
 
 }
-void via_ca1_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
+void via1_ca1_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
 	if(value == 1){
 		VIA1.ext_set_ca1();
+	}
+}
+
+void via0_ca1_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
+	if(value == 1){
+		VIA0.ext_set_ca1();
 	}
 }
 
@@ -147,6 +152,7 @@ static void ser_hook(
 }
 
 static ILI9488 *lcd = NULL;
+static PS2Keyboard ps2kbd;
 
 static void spi_hook(
 		struct avr_irq_t * irq,
@@ -217,6 +223,12 @@ void wmf(uint16_t addr, uint8_t data){
 
 }
 
+void via0_ca2_cb(bool in){
+
+	avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 3);
+	avr_raise_irq(pin, in);
+}
+
 void via1_ca2_cb(bool in){
 
 	avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 5);
@@ -271,7 +283,12 @@ int main( int argc, char * argv[] )
 			
 		avr_irq_register_notify(
 			avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 4),
-			via_ca1_hook,
+			via1_ca1_hook,
+			NULL);
+			
+		avr_irq_register_notify(
+			avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 7),
+			via0_ca1_hook,
 			NULL);
     //connect serial
     ser_irq = avr_alloc_irq(&sio->irq_pool, 0, IRQ_UART_PTY_COUNT, irq_names);
@@ -286,7 +303,11 @@ int main( int argc, char * argv[] )
 
 	//connect via1 ca2 
 	VIA1.set_ca2_w_cb(via1_ca2_cb);
+
+	//connect via0 ca2 
+	VIA0.set_ca2_w_cb(via1_ca2_cb);
 	
+
 	//conect via0 callbacks
 	VIA0.set_pb_w_cb(via0_pbw_cb);
 	
@@ -328,12 +349,13 @@ int main( int argc, char * argv[] )
 	VIA0.set_on_irq_cb(irq_cb);
 
 
-    while(sdl.poll_events()){
+    while(sdl.poll_events(&ps2kbd)){
         ++ticks;
 
 
         for(int i=0;i<AVR_FREQ/60;++i){
             avr_run(sio);
+            ps2kbd.tick(sio);
             if(i % 8 == 0){ //2 mhz for 6809
 				sys_cpu.run_cycles(1);
 				VIA0.phi2_tick();
