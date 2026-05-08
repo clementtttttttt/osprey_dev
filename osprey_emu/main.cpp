@@ -83,10 +83,11 @@ SDL::SDL( Uint32 flags )
     if ( SDL_Init( flags ) != 0 )
         throw InitError();
 
-    if ( SDL_CreateWindowAndRenderer( 320, 480, SDL_WINDOW_SHOWN,
+    if ( SDL_CreateWindowAndRenderer( 320*2, 480*2, SDL_WINDOW_SHOWN,
                                       &m_window, &m_renderer ) != 0 )
         throw InitError();
     SDL_SetHint (SDL_HINT_RENDER_VSYNC, "1");
+    SDL_SetHint (SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitor");
     SDL_SetWindowTitle(m_window, "OSPREY PORTBALE COMPUTING UNIT EMULATOR");
     fb = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 320, 480);
 }
@@ -239,7 +240,7 @@ int main( int argc, char * argv[] )
     SDL sdl( SDL_INIT_VIDEO | SDL_INIT_TIMER );
 
     lcd = new ILI9488(sdl.get_fb());
-	lcd->set_debug(true);
+	//lcd->set_debug(true);
 
     elf_firmware_t firm = {{0}};
     elf_read_firmware("test.elf", &firm);

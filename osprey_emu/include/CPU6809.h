@@ -10,6 +10,7 @@ public:
     CPU6809(uint8_t(*rmf)(uint16_t addr), void(*wmf)(uint16_t addr, uint8_t byte));
     virtual ~CPU6809();
     void run_cycles(uint32_t c);
+    void assert_irq();
 
     // Expose flag constants for inline branch helpers
     enum cc_flags {
@@ -32,6 +33,7 @@ private:
     uint16_t regs_16[8];
     uint8_t* regs_8[8];
     bool reset;
+    bool m_irq;
     uint8_t ir;
 
     uint16_t read16(uint16_t addr);

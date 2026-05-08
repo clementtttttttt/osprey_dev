@@ -43,7 +43,7 @@ static const char* mnemonic_table[256] = {
 #endif
 
 CPU6809::CPU6809(uint8_t(*rmf)(uint16_t addr), void(*wmf)(uint16_t addr, uint8_t byte))
-    : read_mem(rmf), write_mem(wmf), cc(0), dp(0), zero(0), reset(true), ir(0)
+    : read_mem(rmf), write_mem(wmf), cc(0), dp(0), zero(0), reset(true), m_irq(false), ir(0)
 {
     regs_8[reg_a] = reinterpret_cast<uint8_t*>(&regs_16[reg_d]) + 1;
     regs_8[reg_b] = reinterpret_cast<uint8_t*>(&regs_16[reg_d]);
@@ -57,6 +57,8 @@ CPU6809::CPU6809(uint8_t(*rmf)(uint16_t addr), void(*wmf)(uint16_t addr, uint8_t
 }
 
 CPU6809::~CPU6809() {}
+
+void CPU6809::assert_irq() { m_irq = true; }
 
 uint16_t CPU6809::read16(uint16_t addr) {
     return ((uint16_t)read_mem(addr) << 8) | read_mem(addr + 1);
@@ -422,9 +424,12 @@ void CPU6809::op_rts()   { regs_16[reg_pc] = spop16(); }
 void CPU6809::op_rti() {
     cc = spop();
     if (cc & CC_E) {
-        spop(); spop(); spop(); spop();
-        spop16(); spop16(); spop16(); spop16();
-        spop16(); spop16(); spop16(); spop16();
+        dp = spop();
+        *regs_8[reg_b] = spop();
+        *regs_8[reg_a] = spop();
+        regs_16[reg_x] = spop16();
+        regs_16[reg_y] = spop16();
+        regs_16[reg_u] = spop16();
     }
     regs_16[reg_pc] = spop16();
 }
@@ -848,6 +853,25 @@ void CPU6809::run_cycles(uint32_t c) {
         fprintf(stderr, "\n=== RESET -> PC=%04X ===\n\n", regs_16[reg_pc]);
 #endif
     } else {
+        if (m_irq && !(cc & CC_I)) {
+            m_irq = false;
+            cc |= CC_E;
+            spush16(regs_16[reg_pc]);
+            spush16(regs_16[reg_u]);
+            spush16(regs_16[reg_y]);
+            spush16(regs_16[reg_x]);
+            spush(regs_16[reg_d] >> 8);
+            spush(regs_16[reg_d] & 0xff);
+            spush(dp);
+            spush(cc);
+            cc |= CC_I | CC_F;
+            regs_16[reg_pc] = read16(0xfff8);
+#ifdef CPU6809_DEBUG
+            fprintf(stderr, "\n=== IRQ -> PC=%04X ===\n\n", regs_16[reg_pc]);
+#endif
+            return;
+        }
+
         ir = read_mem(regs_16[reg_pc]++);
 
 #ifdef CPU6809_DEBUG
