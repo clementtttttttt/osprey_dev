@@ -196,18 +196,21 @@ static void avr_debug_wait_advance() {
 }
 
 void via_din_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
-	std::cout <<"PORTA WRITE " <<std::hex<< value << std::endl;
-	VIA0.ext_write_porta(0xff, value);
+	static uint64_t last_cycle = 0;
+	if(sio->cycle == last_cycle) return;
+	last_cycle = sio->cycle;
+	uint8_t porta_val = sio->data[AVR_IO_TO_DATA(0x1B)];
+			std::cout << "PORTA: "<<porta_val << std::endl;
+
+	VIA0.ext_write_porta(0xff, porta_val);
 }
 void via1_ca1_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
 	
 		VIA1.ext_set_ca1(value);
-		std::cout << "1 CA1! " << value << std::endl;
 }
 
 void via0_ca1_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
 		VIA0.ext_set_ca1(value);
-			std::cout << "0 CA1! " << value << std::endl;
 
 }
 
@@ -308,7 +311,6 @@ void via0_ca2_cb(bool in){
 	else   sio->data[AVR_IO_TO_DATA(0x10)] &= ~(1 << 3);
 
 	
-				std::cout << "0 CA2! " << in << std::endl;
 		if(in == false){
 		//	debug_step = true;
 
@@ -320,7 +322,6 @@ void via1_ca2_cb(bool in){
 	avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_IOPORT_GETIRQ('D'), 5);
 	avr_raise_irq(pin, in);
 
-					std::cout << "1 CA2! " << in << std::endl;
 }
 
 void via0_pbw_cb(uint8_t in){
@@ -329,7 +330,7 @@ void via0_pbw_cb(uint8_t in){
 		avr_raise_irq(pin, (in >> i) & 1);
 	}
 	
-	std::cout << "PB WRITE " << (uint16_t)in << std::endl;
+	//std::cout << "PB WRITE " << (uint16_t)in << std::endl;
 }
 CPU6809 sys_cpu(rmf, wmf);
 
@@ -448,9 +449,10 @@ int main( int argc, char * argv[] )
         {
             char c;
             while(read(STDIN_FILENO, &c, 1) > 0){
-
-                avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_UART_GETIRQ('0'), UART_IRQ_INPUT);
-                avr_raise_irq(pin, c);
+				if(c != 0){
+					avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_UART_GETIRQ('0'), UART_IRQ_INPUT);
+					avr_raise_irq(pin, c);
+				}
             }
         }
 

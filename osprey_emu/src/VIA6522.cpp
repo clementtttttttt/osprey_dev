@@ -42,7 +42,7 @@ uint8_t VIA6522::reg_read(uint16_t in){
 				ifr &= ~IFR_CA1;
 				
 				if(((pcr >> 1) & 0b111) == 0b101){
-					ca2_low_counter = 8;
+					ca2_low_counter = 2;
 					on_ca2_w(false);
 				} 
 				return porta;
@@ -88,16 +88,7 @@ uint8_t VIA6522::reg_read(uint16_t in){
 }
 
 void VIA6522::ext_write_portb(uint8_t active_bits, uint8_t data){
-	if(active_bits & ddrb){
-		std::cout << "WARNING: BUS CONFLICT ON PORTB!" << std::endl;
-	}
-	
-	portb &= active_bits;//unset data in input bits
-	data &= ~(active_bits); //unset data in unused bits 
-	
-	portb |= data; //combine data
-	
-	return;
+	portb = (portb & ~active_bits) | (data & active_bits);
 }
 
 void VIA6522::ext_set_ca1(uint32_t v){
@@ -116,16 +107,7 @@ void VIA6522::ext_set_ca1(uint32_t v){
 
 
 void VIA6522::ext_write_porta(uint8_t active_bits, uint8_t data){
-	if(active_bits & ddra){
-		std::cout << "WARNING: BUS CONFLICT ON PORTA!" << std::endl;
-	}
-	
-	porta &= active_bits;//unset data in input bits
-	data &= ~(active_bits); //unset data in unused bits 
-	
-	porta |= data; //combine data
-	
-	return;
+	porta = (porta & ~active_bits) | (data & active_bits);
 }
 
 void VIA6522::on_cb2_w(bool st){
@@ -215,7 +197,7 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 			ifr &= ~(IFR_CA1); //clear ca1 int
 			
 			if(((pcr >> 1) & 0b111) == 0b101){
-				ca2_low_counter = 8;
+				ca2_low_counter = 2;
 				on_ca2_w(false);
 			} 
 			
