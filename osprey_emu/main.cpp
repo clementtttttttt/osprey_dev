@@ -477,7 +477,6 @@ int main( int argc, char * argv[] )
 
         for(int i=0;i<AVR_FREQ/60;++i){
             avr_run(sio);
-            ps2kbd.tick(sio);
             if(debug_step){
 #ifndef NO_AVR_TRACE
 				                        avr_debug_tick(i);
@@ -490,7 +489,7 @@ int main( int argc, char * argv[] )
 				sys_cpu.run_cycles(1);
 				VIA0.phi2_tick();
 				VIA1.phi2_tick();
-				
+				ps2kbd.tick(sio);
 
 			}
         }

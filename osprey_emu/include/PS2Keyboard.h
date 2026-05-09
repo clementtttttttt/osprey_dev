@@ -14,7 +14,7 @@ public:
 	void tick(avr_t *avr);
 
 private:
-	enum { PS2_CLK_HALF_PERIOD = 30 };
+	enum { PS2_CLK_HALF_PERIOD = 83 };
 
 	void queue_scan(uint8_t code);
 	void queue_scan_ext(uint8_t code);
@@ -28,8 +28,10 @@ private:
 	bool m_clk_state;
 	bool m_data_state;
 	bool m_sending;
+	bool m_idle;
+	bool m_clock_pending;
+	uint16_t m_inter_frame_delay;
 
-	static const uint8_t sdl_to_ps2[SDL_NUM_SCANCODES];
 };
 
 #endif

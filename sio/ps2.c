@@ -18,7 +18,7 @@ unsigned short _buf[PS2_BUF_LEN]; /* only used within ATOMIC_BLOCK */
 uint8_t _bufbeg = 0; /* only used within ATOMIC_BLOCK */
 uint8_t _bufend = 0; /* only used within ATOMIC_BLOCK */
 
-
+void draw_string(const char *restrict c);
 void
 ps2_init(void)
 {
@@ -52,6 +52,10 @@ ps2_read(void)
 		/* all bits received */
 		_decode(data);
 		bitcount = 11;
+		
+		char test[7];
+		snprintf(test, 7, "?%.2x\r\n", data);
+		draw_string(test);
 	} 
 }
 
