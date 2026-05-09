@@ -27,13 +27,13 @@ const uint8_t PS2Keyboard::sdl_to_ps2[SDL_NUM_SCANCODES] = {
 	// 48-55
 	0x5B, 0x5D, 0x5D, 0x4C, 0x52, 0x0E, 0x41, 0x49,
 	// 56-63
-	0x4A, 0, 0x05, 0x06, 0x04, 0x0C, 0x03, 0x0B,
+	0x4A, 0x58, 0x05, 0x06, 0x04, 0x0C, 0x03, 0x0B,
 	// 64-71
-	0x83, 0x0A, 0x01, 0x09, 0x78, 0x07, 0, 0,
+	0x83, 0x0A, 0x01, 0x09, 0x78, 0x07, 0, 0x7E,
 	// 72-79
 	0, 0x70, 0x6C, 0x7D, 0x71, 0x69, 0x7A, 0x74,
 	// 80-87
-	0x6B, 0x72, 0x75, 0, 0x4A, 0x7C, 0x7B, 0x79,
+	0x6B, 0x72, 0x75, 0x77, 0x4A, 0x7C, 0x7B, 0x79,
 	// 88-95
 	0x5A, 0x69, 0x72, 0x7A, 0x6B, 0x73, 0x74, 0x6C,
 	// 96-103
@@ -97,7 +97,7 @@ void PS2Keyboard::handle_event(const SDL_Event &ev)
 
 	PS2_LOG("SDL sc=" << (int)sc << " -> ps2=0x" << std::hex << (int)code << std::dec << (ev.type == SDL_KEYUP ? " UP" : " DOWN"));
 
-	bool extended = (sc == SDL_SCANCODE_KP_ENTER || sc == SDL_SCANCODE_LGUI || sc == SDL_SCANCODE_RCTRL || sc == SDL_SCANCODE_RALT || sc == SDL_SCANCODE_RGUI || sc == SDL_SCANCODE_APPLICATION);
+	bool extended = (sc == SDL_SCANCODE_KP_ENTER || sc == SDL_SCANCODE_KP_DIVIDE || sc == SDL_SCANCODE_LGUI || sc == SDL_SCANCODE_RCTRL || sc == SDL_SCANCODE_RALT || sc == SDL_SCANCODE_RGUI || sc == SDL_SCANCODE_APPLICATION || sc == SDL_SCANCODE_INSERT || sc == SDL_SCANCODE_HOME || sc == SDL_SCANCODE_PAGEUP || sc == SDL_SCANCODE_DELETE || sc == SDL_SCANCODE_END || sc == SDL_SCANCODE_PAGEDOWN || sc == SDL_SCANCODE_RIGHT || sc == SDL_SCANCODE_LEFT || sc == SDL_SCANCODE_DOWN || sc == SDL_SCANCODE_UP);
 
 	if (ev.type == SDL_KEYUP) {
 		if (extended) {
@@ -113,6 +113,19 @@ void PS2Keyboard::handle_event(const SDL_Event &ev)
 		else
 			queue_scan(code);
 	}
+}
+
+static void ps2_set_pin(avr_t *avr, char port, int bit, bool val)
+{
+	avr_raise_irq(
+		avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ(port), bit),
+		val);
+
+	avr_ioport_external_t ext;
+	ext.name = port;
+	ext.mask = (uint8_t)(1 << bit);
+	ext.value = val ? (uint8_t)(1 << bit) : 0;
+	avr_ioctl(avr, AVR_IOCTL_IOPORT_SET_EXTERNAL(port), &ext);
 }
 
 void PS2Keyboard::tick(avr_t *avr)
@@ -145,40 +158,35 @@ void PS2Keyboard::tick(avr_t *avr)
 
 	if (m_clk_state) {
 		m_clk_state = false;
+
+		if (m_frame_idx == 0) {
+			PS2_LOG("  start bit");
+			ps2_set_pin(avr, 'B', 1, false);
+			ps2_set_pin(avr, 'D', 2, true);
+			m_frame_idx = 1;
+		} else {
+			PS2_LOG("  clock rising edge, sample bit=" << (int)(m_frame_idx - 1));
+			ps2_set_pin(avr, 'D', 2, true);
+			m_frame_idx++;
+
+			if (m_frame_idx >= m_frame_bits) {
+				m_sending = false;
+				m_clk_state = true;
+				m_data_state = true;
+
+				PS2_LOG("TX complete, idle");
+
+				ps2_set_pin(avr, 'D', 2, true);
+				ps2_set_pin(avr, 'B', 1, true);
+			}
+		}
+	} else {
+		m_clk_state = true;
 		m_data_state = (m_frame >> m_frame_idx) & 1;
 
 		PS2_LOG("  data=" << (int)m_data_state << " bit=" << (int)m_frame_idx);
 
-		avr_raise_irq(
-			avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ('B'), 1),
-			m_data_state);
-		avr_raise_irq(
-			avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ('D'), 2),
-			1);
-	} else {
-		m_clk_state = true;
-
-		PS2_LOG("  clock falling edge");
-
-		avr_raise_irq(
-			avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ('D'), 2),
-			0);
-
-		m_frame_idx++;
-
-		if (m_frame_idx >= m_frame_bits) {
-			m_sending = false;
-			m_clk_state = true;
-			m_data_state = true;
-
-			PS2_LOG("TX complete, idle");
-
-			avr_raise_irq(
-				avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ('D'), 2),
-				1);
-			avr_raise_irq(
-				avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ('B'), 1),
-				1);
-		}
+		ps2_set_pin(avr, 'B', 1, m_data_state);
+		ps2_set_pin(avr, 'D', 2, false);
 	}
 }
