@@ -1,7 +1,7 @@
 #include "CPU6809.h"
 #include <iostream>
 
-//#define CPU6809_DEBUG
+#define CPU6809_DEBUG
 #ifdef CPU6809_DEBUG
 #include <iomanip>
 static const char* mnemonic_table[256] = {
@@ -62,20 +62,32 @@ static const uint8_t cycle_cost[256] = {
 };
 
 CPU6809::CPU6809(uint8_t(*rmf)(uint16_t addr), void(*wmf)(uint16_t addr, uint8_t byte))
-    : read_mem(rmf), write_mem(wmf), cc(0), dp(0), zero(0), reset(true), m_irq(false), ir(0), m_total_cycles(0), m_cycle_adj(0)
+    : read_mem(rmf), write_mem(wmf), cc(0), dp(0), zero(0), m_reg_a(0), m_reg_b(0), m_reg_e(0), m_reg_f(0), reset(true), m_irq(false), ir(0), m_total_cycles(0), m_cycle_adj(0)
 {
-    regs_8[reg_a] = reinterpret_cast<uint8_t*>(&regs_16[reg_d]) + 1;
-    regs_8[reg_b] = reinterpret_cast<uint8_t*>(&regs_16[reg_d]);
+    regs_8[reg_a] = &m_reg_a;
+    regs_8[reg_b] = &m_reg_b;
     regs_8[reg_cc] = &cc;
     regs_8[reg_dp] = &dp;
     regs_8[reg_0_1] = &zero;
     regs_8[reg_0_2] = &zero;
-    regs_8[reg_e] = reinterpret_cast<uint8_t*>(&regs_16[reg_w]) + 1;
-    regs_8[reg_f] = reinterpret_cast<uint8_t*>(&regs_16[reg_w]);
+    regs_8[reg_e] = &m_reg_e;
+    regs_8[reg_f] = &m_reg_f;
 	reset = true;
 }
 
 CPU6809::~CPU6809() {}
+
+uint16_t CPU6809::get_reg16(int r) const {
+    if (r == reg_d) return get_d();
+    if (r == reg_w) return get_w();
+    return regs_16[r];
+}
+
+void CPU6809::set_reg16(int r, uint16_t v) {
+    if (r == reg_d) { set_d(v); return; }
+    if (r == reg_w) { set_w(v); return; }
+    regs_16[r] = v;
+}
 
 void CPU6809::assert_irq() { m_irq = true; }
 
@@ -150,11 +162,11 @@ uint16_t CPU6809::ea_indexed() {
 			case 0x02: ea = --(*base); break;
 			case 0x03: *base -= 2; ea = *base; break;
 			case 0x04: ea = *base; break;
-			case 0x05: ea = *base + *regs_8[reg_b]; break;
-			case 0x06: ea = *base + *regs_8[reg_a]; break;
+			case 0x05: ea = *base + (int8_t)*regs_8[reg_b]; break;
+			case 0x06: ea = *base + (int8_t)*regs_8[reg_a]; break;
 			case 0x08: ea = *base + (int8_t)read_mem(regs_16[reg_pc]++); break;
 			case 0x09: ea = *base + read16(regs_16[reg_pc]); regs_16[reg_pc] += 2; break;
-			case 0x0B: ea = *base + regs_16[reg_d]; break;
+			case 0x0B: ea = *base + get_d(); break;
 			case 0x0C: { int8_t off = (int8_t)read_mem(regs_16[reg_pc]++); ea = regs_16[reg_pc] + off; break; }
 			case 0x0D: { int16_t off = (int16_t)read16(regs_16[reg_pc]); regs_16[reg_pc] += 2; ea = regs_16[reg_pc] + off; break; }
 			case 0x0F: ea = read16(regs_16[reg_pc]); regs_16[reg_pc] += 2; break;
@@ -176,8 +188,8 @@ void CPU6809::mem_com(uint16_t ea) { uint8_t v = ~read_mem(ea); write_mem(ea, v)
 void CPU6809::mem_lsr(uint16_t ea) { uint8_t v = read_mem(ea); cc = (cc & ~CC_C) | (v & 1); v >>= 1; write_mem(ea, v); cc &= ~CC_N; if (v == 0) cc |= CC_Z; }
 void CPU6809::mem_ror(uint16_t ea) { uint8_t v = read_mem(ea); uint8_t oc = cc & CC_C; cc = (cc & ~CC_C) | (v & 1); v >>= 1; if (oc) v |= 0x80; write_mem(ea, v); set_nz8(v); }
 void CPU6809::mem_asr(uint16_t ea) { uint8_t v = read_mem(ea); cc = (cc & ~CC_C) | (v & 1); v = (v >> 1) | (v & 0x80); write_mem(ea, v); set_nz8(v); }
-void CPU6809::mem_lsl(uint16_t ea) { uint8_t v = read_mem(ea); cc = (cc & ~CC_C) | ((v & 0x80) ? CC_C : 0); cc &= ~CC_V; if (!!(v & 0x40) ^ !!(v & 0x80)) cc |= CC_V; v <<= 1; write_mem(ea, v); cc &= ~CC_N; if (v == 0) cc |= CC_Z; }
-void CPU6809::mem_rol(uint16_t ea) { uint8_t v = read_mem(ea); uint8_t oc = cc & CC_C; cc = (cc & ~CC_C) | ((v & 0x80) ? CC_C : 0); v <<= 1; if (oc) v |= 1; cc &= ~CC_V; if (!!(v & 0x40) ^ !!(v & 0x80)) cc |= CC_V; write_mem(ea, v); set_nz8(v); }
+void CPU6809::mem_lsl(uint16_t ea) { uint8_t v = read_mem(ea); cc = (cc & ~CC_C) | ((v & 0x80) ? CC_C : 0); cc &= ~CC_V; if (!!(v & 0x40) ^ !!(v & 0x80)) cc |= CC_V; v <<= 1; write_mem(ea, v); set_nz8(v); }
+void CPU6809::mem_rol(uint16_t ea) { uint8_t v = read_mem(ea); uint8_t oc = cc & CC_C; cc = (cc & ~CC_C) | ((v & 0x80) ? CC_C : 0); cc &= ~CC_V; if (!!(v & 0x40) ^ !!(v & 0x80)) cc |= CC_V; v <<= 1; if (oc) v |= 1; write_mem(ea, v); set_nz8(v); }
 void CPU6809::mem_dec(uint16_t ea) { uint8_t v = read_mem(ea); cc &= ~CC_V; if (v == 0x80) cc |= CC_V; v--; write_mem(ea, v); set_nz8(v); }
 void CPU6809::mem_inc(uint16_t ea) { uint8_t v = read_mem(ea); cc &= ~CC_V; if (v == 0x7f) cc |= CC_V; v++; write_mem(ea, v); set_nz8(v); }
 void CPU6809::mem_tst(uint16_t ea) { uint8_t v = read_mem(ea); cc &= ~CC_V; set_nz8(v); }
@@ -189,8 +201,8 @@ void CPU6809::reg_com(uint8_t* r) { *r = ~(*r); cc &= ~CC_V; cc |= CC_C; set_nz8
 void CPU6809::reg_lsr(uint8_t* r) { uint8_t v = *r; cc = (cc & ~CC_C) | (v & 1); v >>= 1; *r = v; cc &= ~CC_N; if (v == 0) cc |= CC_Z; }
 void CPU6809::reg_ror(uint8_t* r) { uint8_t v = *r; uint8_t oc = cc & CC_C; cc = (cc & ~CC_C) | (v & 1); v >>= 1; if (oc) v |= 0x80; *r = v; set_nz8(v); }
 void CPU6809::reg_asr(uint8_t* r) { uint8_t v = *r; cc = (cc & ~CC_C) | (v & 1); v = (v >> 1) | (v & 0x80); *r = v; set_nz8(v); }
-void CPU6809::reg_lsl(uint8_t* r) { uint8_t v = *r; cc = (cc & ~CC_C) | ((v & 0x80) ? CC_C : 0); cc &= ~CC_V; if (!!(v & 0x40) ^ !!(v & 0x80)) cc |= CC_V; v <<= 1; *r = v; cc &= ~CC_N; if (v == 0) cc |= CC_Z; }
-void CPU6809::reg_rol(uint8_t* r) { uint8_t v = *r; uint8_t oc = cc & CC_C; cc = (cc & ~CC_C) | ((v & 0x80) ? CC_C : 0); v <<= 1; if (oc) v |= 1; *r = v; cc &= ~CC_V; if (!!(v & 0x40) ^ !!(v & 0x80)) cc |= CC_V; set_nz8(v); }
+void CPU6809::reg_lsl(uint8_t* r) { uint8_t v = *r; cc = (cc & ~CC_C) | ((v & 0x80) ? CC_C : 0); cc &= ~CC_V; if (!!(v & 0x40) ^ !!(v & 0x80)) cc |= CC_V; v <<= 1; *r = v; set_nz8(v); }
+void CPU6809::reg_rol(uint8_t* r) { uint8_t v = *r; uint8_t oc = cc & CC_C; cc = (cc & ~CC_C) | ((v & 0x80) ? CC_C : 0); cc &= ~CC_V; if (!!(v & 0x40) ^ !!(v & 0x80)) cc |= CC_V; v <<= 1; if (oc) v |= 1; *r = v; set_nz8(v); }
 void CPU6809::reg_dec(uint8_t* r) { uint8_t v = *r; cc &= ~CC_V; if (v == 0x80) cc |= CC_V; (*r)--; set_nz8(*r); }
 void CPU6809::reg_inc(uint8_t* r) { uint8_t v = *r; cc &= ~CC_V; if (v == 0x7f) cc |= CC_V; (*r)++; set_nz8(*r); }
 void CPU6809::reg_tst(uint8_t* r) { cc &= ~CC_V; set_nz8(*r); }
@@ -328,21 +340,23 @@ void CPU6809::op_addb(uint8_t v) {
 }
 
 void CPU6809::op_subd(uint16_t v) {
-    uint32_t r = (uint32_t)regs_16[reg_d] - (uint32_t)v;
+    uint16_t d = get_d();
+    uint32_t r = (uint32_t)d - (uint32_t)v;
     cc = (cc & ~(CC_C | CC_V | CC_Z | CC_N));
     if (r & 0xffff0000) cc |= CC_C;
-    if (((regs_16[reg_d] ^ v) & (regs_16[reg_d] ^ (uint16_t)r)) & 0x8000) cc |= CC_V;
-    regs_16[reg_d] = (uint16_t)r;
-    set_nz16(regs_16[reg_d]);
+    if (((d ^ v) & (d ^ (uint16_t)r)) & 0x8000) cc |= CC_V;
+    set_d((uint16_t)r);
+    set_nz16((uint16_t)r);
 }
 
 void CPU6809::op_addd(uint16_t v) {
-    uint32_t r = (uint32_t)regs_16[reg_d] + (uint32_t)v;
+    uint16_t d = get_d();
+    uint32_t r = (uint32_t)d + (uint32_t)v;
     cc = (cc & ~(CC_C | CC_V | CC_Z | CC_N));
     if (r > 0xffff) cc |= CC_C;
-    if (((regs_16[reg_d] ^ r) & (v ^ r)) & 0x8000) cc |= CC_V;
-    regs_16[reg_d] = (uint16_t)r;
-    set_nz16(regs_16[reg_d]);
+    if (((d ^ r) & (v ^ r)) & 0x8000) cc |= CC_V;
+    set_d((uint16_t)r);
+    set_nz16((uint16_t)r);
 }
 
 void CPU6809::op_cmpx(uint16_t v) {
@@ -356,11 +370,21 @@ void CPU6809::op_cmpx(uint16_t v) {
 
 void CPU6809::op_ldx(uint16_t v) { regs_16[reg_x] = v; cc &= ~CC_V; set_nz16(v); }
 void CPU6809::op_stx(uint16_t ea) { write16(ea, regs_16[reg_x]); cc &= ~CC_V; set_nz16(regs_16[reg_x]); }
-void CPU6809::op_ldd(uint16_t v) { regs_16[reg_d] = v; cc &= ~CC_V; set_nz16(v); }
-void CPU6809::op_std(uint16_t ea) { write16(ea, regs_16[reg_d]); cc &= ~CC_V; set_nz16(regs_16[reg_d]); }
+void CPU6809::op_ldd(uint16_t v) { set_d(v); cc &= ~CC_V; set_nz16(v); }
+void CPU6809::op_std(uint16_t ea) { write16(ea, get_d()); cc &= ~CC_V; set_nz16(get_d()); }
 void CPU6809::op_ldu(uint16_t v) { regs_16[reg_u] = v; cc &= ~CC_V; set_nz16(v); }
 void CPU6809::op_stu(uint16_t ea) { write16(ea, regs_16[reg_u]); cc &= ~CC_V; set_nz16(regs_16[reg_u]); }
 void CPU6809::op_jsr(uint16_t ea) { spush16(regs_16[reg_pc]); regs_16[reg_pc] = ea; }
+
+void CPU6809::op_cmpd(uint16_t v) {
+    uint16_t d = get_d();
+    uint32_t r = (uint32_t)d - (uint32_t)v;
+    cc = (cc & ~(CC_C | CC_V | CC_Z | CC_N));
+    if (r & 0xffff0000) cc |= CC_C;
+    if (((d ^ v) & (d ^ (uint16_t)r)) & 0x8000) cc |= CC_V;
+    if ((uint16_t)r == 0) cc |= CC_Z;
+    if ((uint16_t)r & 0x8000) cc |= CC_N;
+}
 
 void CPU6809::op_cmpy(uint16_t v) {
     uint32_t r = (uint32_t)regs_16[reg_y] - (uint32_t)v;
@@ -402,12 +426,16 @@ void CPU6809::op_sex() {
 void CPU6809::op_daa() {
     uint8_t a = *regs_8[reg_a];
     uint8_t hi = a >> 4, lo = a & 0x0f;
-    uint8_t old_hi = hi;
-    if ((cc & CC_C) || hi > 9 || (hi > 8 && lo > 9)) hi += 6;
-    if ((cc & CC_H) || lo > 9) lo += 6;
+    uint8_t lo_adj = ((cc & CC_H) || lo > 9) ? 6 : 0;
+    uint8_t hi_adj = ((cc & CC_C) || hi > 9 || (hi > 8 && lo > 9)) ? 6 : 0;
+    lo += lo_adj;
+    uint8_t carry_to_hi = (lo >= 16) ? 1 : 0;
+    lo &= 0xf;
+    hi += hi_adj + carry_to_hi;
     cc &= ~CC_C;
-    if (old_hi > 9) cc |= CC_C;
-    *regs_8[reg_a] = ((hi & 0xf) << 4) | (lo & 0xf);
+    if (hi >= 16) cc |= CC_C;
+    hi &= 0xf;
+    *regs_8[reg_a] = (hi << 4) | lo;
     set_nz8(*regs_8[reg_a]);
 }
 
@@ -418,18 +446,18 @@ void CPU6809::op_exg() {
     uint8_t imm = read_mem(regs_16[reg_pc]++);
     uint8_t r0 = imm >> 4, r1 = imm & 0x0f;
     if ((r0 & 8) && (r1 & 8)) { uint8_t t = *regs_8[r0 & 7]; *regs_8[r0 & 7] = *regs_8[r1 & 7]; *regs_8[r1 & 7] = t; }
-    else if (!(r0 & 8) && !(r1 & 8)) { uint16_t t = regs_16[r0]; regs_16[r0] = regs_16[r1]; regs_16[r1] = t; }
-    else if ((r0 & 8) && !(r1 & 8)) { uint8_t t = *regs_8[r0 & 7]; *regs_8[r0 & 7] = regs_16[r1] & 0xff; regs_16[r1] = 0xff00 | t; }
-    else { uint8_t t = *regs_8[r1 & 7]; *regs_8[r1 & 7] = regs_16[r0] & 0xff; regs_16[r0] = 0xff00 | t; }
+    else if (!(r0 & 8) && !(r1 & 8)) { uint16_t t = get_reg16(r0); set_reg16(r0, get_reg16(r1)); set_reg16(r1, t); }
+    else if ((r0 & 8) && !(r1 & 8)) { uint8_t t = *regs_8[r0 & 7]; set_reg16(r1, (r0 == reg_cc || r0 == reg_dp) ? (t << 8) | t : (0xff00 | t)); *regs_8[r0 & 7] = get_reg16(r1) & 0xff; }
+    else { uint8_t t = *regs_8[r1 & 7]; set_reg16(r0, (r1 == reg_cc || r1 == reg_dp) ? (t << 8) | t : (0xff00 | t)); *regs_8[r1 & 7] = get_reg16(r0) & 0xff; }
 }
 
 void CPU6809::op_tfr() {
     uint8_t imm = read_mem(regs_16[reg_pc]++);
     uint8_t r0 = imm >> 4, r1 = imm & 0x0f;
     if ((r0 & 8) && (r1 & 8)) { *regs_8[r1 & 7] = *regs_8[r0 & 7]; }
-    else if (!(r0 & 8) && !(r1 & 8)) { regs_16[r1] = regs_16[r0]; }
-    else if ((r0 & 8) && !(r1 & 8)) { regs_16[r1] = 0xff00 | *regs_8[r0 & 7]; }
-    else { *regs_8[r1 & 7] = regs_16[r0] & 0xff; }
+    else if (!(r0 & 8) && !(r1 & 8)) { set_reg16(r1, get_reg16(r0)); }
+    else if ((r0 & 8) && !(r1 & 8)) { uint8_t t = *regs_8[r0 & 7]; set_reg16(r1, (r0 == reg_cc || r0 == reg_dp) ? (t << 8) | t : (0xff00 | t)); }
+    else { *regs_8[r1 & 7] = get_reg16(r0) & 0xff; }
 }
 
 void CPU6809::op_nop() {}
@@ -443,9 +471,9 @@ void CPU6809::op_rts()   { regs_16[reg_pc] = spop16(); }
 void CPU6809::op_rti() {
     cc = spop();
     if (cc & CC_E) {
-        dp = spop();
-        *regs_8[reg_b] = spop();
         *regs_8[reg_a] = spop();
+        *regs_8[reg_b] = spop();
+        dp = spop();
         regs_16[reg_x] = spop16();
         regs_16[reg_y] = spop16();
         regs_16[reg_u] = spop16();
@@ -459,9 +487,8 @@ void CPU6809::op_swi() {
     spush16(regs_16[reg_u]);
     spush16(regs_16[reg_y]);
     spush16(regs_16[reg_x]);
-    spush(regs_16[reg_d] >> 8);
-    spush(regs_16[reg_d] & 0xff);
     spush(dp);
+    spush16(get_d());
     spush(cc);
     cc |= CC_I | CC_F;
     regs_16[reg_pc] = read16(0xfffa);
@@ -473,9 +500,8 @@ void CPU6809::op_swi2() {
     spush16(regs_16[reg_u]);
     spush16(regs_16[reg_y]);
     spush16(regs_16[reg_x]);
-    spush(regs_16[reg_d] >> 8);
-    spush(regs_16[reg_d] & 0xff);
     spush(dp);
+    spush16(get_d());
     spush(cc);
     regs_16[reg_pc] = read16(0xfff4);
 }
@@ -486,19 +512,18 @@ void CPU6809::op_swi3() {
     spush16(regs_16[reg_u]);
     spush16(regs_16[reg_y]);
     spush16(regs_16[reg_x]);
-    spush(regs_16[reg_d] >> 8);
-    spush(regs_16[reg_d] & 0xff);
     spush(dp);
+    spush16(get_d());
     spush(cc);
     regs_16[reg_pc] = read16(0xfff2);
 }
 
 void CPU6809::op_mul() {
     uint16_t r = (uint16_t)(*regs_8[reg_a]) * (uint16_t)(*regs_8[reg_b]);
-    regs_16[reg_d] = r;
-    cc &= ~CC_C;
+    set_d(r);
+    cc &= ~(CC_C | CC_Z);
     if (r & 0x80) cc |= CC_C;
-    set_nz16(r);
+    if (r == 0) cc |= CC_Z;
 }
 
 void CPU6809::op_abx() { regs_16[reg_x] += *regs_8[reg_b]; }
@@ -511,9 +536,8 @@ void CPU6809::op_cwai() {
     spush16(regs_16[reg_u]);
     spush16(regs_16[reg_y]);
     spush16(regs_16[reg_x]);
-    spush(regs_16[reg_d] >> 8);
-    spush(regs_16[reg_d] & 0xff);
     spush(dp);
+    spush16(get_d());
     spush(cc);
 }
 
@@ -548,8 +572,8 @@ void CPU6809::op_pshu() {
     if (m & 0x20) upush16(regs_16[reg_y]);
     if (m & 0x10) upush16(regs_16[reg_x]);
     if (m & 0x08) upush(dp);
-    if (m & 0x04) spush(*regs_8[reg_b]);
-    if (m & 0x02) spush(*regs_8[reg_a]);
+    if (m & 0x04) upush(*regs_8[reg_b]);
+    if (m & 0x02) upush(*regs_8[reg_a]);
     if (m & 0x01) upush(cc);
 }
 
@@ -565,25 +589,12 @@ void CPU6809::op_pulu() {
     if (m & 0x80) regs_16[reg_pc] = upop16();
 }
 
+extern bool debug_step;
+
 void CPU6809::op_leax() {
     uint8_t pb = read_mem(regs_16[reg_pc]);
     if (pb == 0x84) {
-        
-		//very crude breakpoint
-		bool quit = false;
-		
-		while(!quit){
-			
-			uint32_t addr;
-			
-			std::cin >>std::hex>> addr;
-			if(addr == 0xffffffff){
-				quit = true;
-			}
-			
-			std::cout << std::hex <<(uint16_t)read_mem(addr)<<std::endl;
-		}
-
+        debug_step = true;
     }
     regs_16[reg_x] = ea_indexed(); cc &= ~CC_Z; if (regs_16[reg_x] == 0) cc |= CC_Z;
 }
@@ -642,26 +653,24 @@ void CPU6809::dispatch_30_3f() {
 void CPU6809::dispatch_branch() {
     uint8_t lo = ir & 0x0f;
     int8_t off = ea_rel8();
-    bool taken = false;
     switch (lo) {
-        case 0x0: do_bra8(off); taken = true; break;
+        case 0x0: do_bra8(off); break;
         case 0x1: break;
-        case 0x2: if (!(cc & (CC_C | CC_Z))) { do_bra8(off); taken = true; } break;
-        case 0x3: if (cc & (CC_C | CC_Z)) { do_bra8(off); taken = true; } break;
-        case 0x4: if (!(cc & CC_C)) { do_bra8(off); taken = true; } break;
-        case 0x5: if (cc & CC_C) { do_bra8(off); taken = true; } break;
-        case 0x6: if (!(cc & CC_Z)) { do_bra8(off); taken = true; } break;
-        case 0x7: if (cc & CC_Z) { do_bra8(off); taken = true; } break;
-        case 0x8: if (!(cc & CC_V)) { do_bra8(off); taken = true; } break;
-        case 0x9: if (cc & CC_V) { do_bra8(off); taken = true; } break;
-        case 0xA: if (!(cc & CC_N)) { do_bra8(off); taken = true; } break;
-        case 0xB: if (cc & CC_N) { do_bra8(off); taken = true; } break;
-        case 0xC: if (((cc & CC_N) != 0) == ((cc & CC_V) != 0)) { do_bra8(off); taken = true; } break;
-        case 0xD: if (((cc & CC_N) != 0) != ((cc & CC_V) != 0)) { do_bra8(off); taken = true; } break;
-        case 0xE: if (!(cc & CC_Z) && ((cc & CC_N) != 0) == ((cc & CC_V) != 0)) { do_bra8(off); taken = true; } break;
-        case 0xF: if ((cc & CC_Z) || ((cc & CC_N) != 0) != ((cc & CC_V) != 0)) { do_bra8(off); taken = true; } break;
+        case 0x2: if (!(cc & (CC_C | CC_Z))) do_bra8(off); break;
+        case 0x3: if (cc & (CC_C | CC_Z)) do_bra8(off); break;
+        case 0x4: if (!(cc & CC_C)) do_bra8(off); break;
+        case 0x5: if (cc & CC_C) do_bra8(off); break;
+        case 0x6: if (!(cc & CC_Z)) do_bra8(off); break;
+        case 0x7: if (cc & CC_Z) do_bra8(off); break;
+        case 0x8: if (!(cc & CC_V)) do_bra8(off); break;
+        case 0x9: if (cc & CC_V) do_bra8(off); break;
+        case 0xA: if (!(cc & CC_N)) do_bra8(off); break;
+        case 0xB: if (cc & CC_N) do_bra8(off); break;
+        case 0xC: if (((cc & CC_N) != 0) == ((cc & CC_V) != 0)) do_bra8(off); break;
+        case 0xD: if (((cc & CC_N) != 0) != ((cc & CC_V) != 0)) do_bra8(off); break;
+        case 0xE: if (!(cc & CC_Z) && ((cc & CC_N) != 0) == ((cc & CC_V) != 0)) do_bra8(off); break;
+        case 0xF: if ((cc & CC_Z) || ((cc & CC_N) != 0) != ((cc & CC_V) != 0)) do_bra8(off); break;
     }
-    m_cycle_adj = taken ? 2 : 0;
 }
 
 void CPU6809::dispatch_alu_a() {
@@ -784,6 +793,7 @@ void CPU6809::page_2() {
             switch (hi) { case 0x9: ea = ea_direct(); break; case 0xA: ea = ea_indexed(); break; case 0xB: ea = ea_extended(); break; }
         }
         switch (lo) {
+            case 0x3: if (y_imm) op_cmpd(ea_imm16()); else op_cmpd(read16(ea)); break;
             case 0xC: if (y_imm) op_cmpy(ea_imm16()); else op_cmpy(read16(ea)); break;
             case 0xE: if (y_imm) op_ldy(ea_imm16()); else op_ldy(read16(ea)); break;
             case 0xF: if (!y_imm) op_sty(ea); break;
@@ -824,8 +834,8 @@ void CPU6809::page_3() {
     }
 
     switch (lo) {
-        case 0xC: if (imm) op_cmpu(ea_imm16()); else op_cmpu(read16(ea)); break;
-        case 0xE: if (imm) op_cmps(ea_imm16()); else op_cmps(read16(ea)); break;
+        case 0x3: if (imm) op_cmpu(ea_imm16()); else op_cmpu(read16(ea)); break;
+        case 0xC: if (imm) op_cmps(ea_imm16()); else op_cmps(read16(ea)); break;
         default: break;
     }
 }
@@ -908,8 +918,7 @@ void CPU6809::run_cycles(uint32_t c) {
             spush16(regs_16[reg_u]);
             spush16(regs_16[reg_y]);
             spush16(regs_16[reg_x]);
-            spush(regs_16[reg_d] >> 8);
-            spush(regs_16[reg_d] & 0xff);
+            spush16(get_d());
             spush(dp);
             spush(cc);
             cc |= CC_I | CC_F;
@@ -968,7 +977,7 @@ void CPU6809::run_cycles(uint32_t c) {
         else {
             std::cout << " (UNDEF)";
         }
-        trace_regs(cc, regs_16[reg_d], regs_16[reg_x], regs_16[reg_y],
+        trace_regs(cc, get_d(), regs_16[reg_x], regs_16[reg_y],
                    regs_16[reg_u], regs_16[reg_s], regs_16[reg_pc]);
 #endif
 

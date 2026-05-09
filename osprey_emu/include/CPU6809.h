@@ -31,10 +31,19 @@ private:
     uint8_t cc;
     uint8_t dp;
     uint8_t zero;
+    uint8_t m_reg_a, m_reg_b, m_reg_e, m_reg_f;
     uint16_t regs_16[8];
     uint8_t* regs_8[8];
+
+    uint16_t get_d() const { return (uint16_t(m_reg_a) << 8) | m_reg_b; }
+    void set_d(uint16_t v) { m_reg_a = v >> 8; m_reg_b = v & 0xff; }
+    uint16_t get_w() const { return (uint16_t(m_reg_e) << 8) | m_reg_f; }
+    void set_w(uint16_t v) { m_reg_e = v >> 8; m_reg_f = v & 0xff; }
+    uint16_t get_reg16(int r) const;
+    void set_reg16(int r, uint16_t v);
     bool reset;
     bool m_irq;
+    bool m_waiting;
     uint8_t ir;
     uint32_t m_total_cycles;
     uint8_t m_cycle_adj;
@@ -123,6 +132,7 @@ private:
     void op_ldu(uint16_t v);
     void op_stu(uint16_t ea);
     void op_jsr(uint16_t ea);
+    void op_cmpd(uint16_t v);
     void op_cmpy(uint16_t v);
     void op_ldy(uint16_t v);
     void op_sty(uint16_t ea);

@@ -15,8 +15,11 @@
 #include "PS2Keyboard.h"
 
 #include <fstream>
+#include <iomanip>
 #include <unistd.h>
 #include <fcntl.h>
+
+#define NO_AVR_TRACE
 
 enum {
 	IRQ_UART_PTY_BYTE_IN = 0,
@@ -140,6 +143,8 @@ void SDL::draw()
 
 }
 
+uint8_t rmf(uint16_t addr);
+
 static void avr_debug_wait_advance() {
 	while(debug_step && !debug_advance){
 		SDL_PumpEvents();
@@ -154,6 +159,17 @@ static void avr_debug_wait_advance() {
 				if(ev.key.keysym.scancode == SDL_SCANCODE_F2){
 					debug_advance = true;
 				}
+				if(ev.key.keysym.scancode == SDL_SCANCODE_F3){
+					int old_flags = fcntl(STDIN_FILENO, F_GETFL);
+					fcntl(STDIN_FILENO, F_SETFL, old_flags & ~O_NONBLOCK);
+					std::cout << "[6809 MEM] addr> " << std::flush;
+					uint32_t addr;
+					std::cin >> std::hex >> addr;
+					std::cin.clear();
+					std::cout << "[6809 MEM] 0x" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << addr
+					          << " = 0x" << std::setw(2) << (int)rmf((uint16_t)addr) << std::dec << std::endl;
+					fcntl(STDIN_FILENO, F_SETFL, old_flags);
+				}
 			}
 		}
 		SDL_Delay(10);
@@ -161,6 +177,7 @@ static void avr_debug_wait_advance() {
 	debug_advance = false;
 }
 
+#ifndef NO_AVR_TRACE
 	static void avr_debug_tick(int i) {
 	uint8_t sreg = sio->data[0x5f];
 	uint8_t gicr = sio->data[0x5b];
@@ -194,6 +211,7 @@ static void avr_debug_wait_advance() {
 	if(std::cout.fail()) std::cerr << "[DEBUG] cout failbit set!" << std::endl;
 
 }
+#endif
 
 void via_din_hook(struct avr_irq_t * irq, uint32_t value, void * pa){
 	static uint64_t last_cycle = 0;
@@ -449,6 +467,7 @@ int main( int argc, char * argv[] )
         {
             char c;
             while(read(STDIN_FILENO, &c, 1) > 0){
+				if(c == '\n') c = 0xd;
 				if(c != 0){
 					avr_irq_t *pin = avr_io_getirq(sio, AVR_IOCTL_UART_GETIRQ('0'), UART_IRQ_INPUT);
 					avr_raise_irq(pin, c);
@@ -460,8 +479,9 @@ int main( int argc, char * argv[] )
             avr_run(sio);
             ps2kbd.tick(sio);
             if(debug_step){
+#ifndef NO_AVR_TRACE
 				                        avr_debug_tick(i);
-
+#endif
 				 	avr_debug_wait_advance();
 
             }

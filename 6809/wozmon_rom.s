@@ -143,6 +143,7 @@ nextitem:
 	stx H
 	sty YSAV
 nexthex:
+	leax ,x
 	lda IN,y
 	eora #$30
 	cmpa #$a
