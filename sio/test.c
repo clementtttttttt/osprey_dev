@@ -687,17 +687,15 @@ int main(void) {
 			
 			break;
 			case CMD_GETC:
-				unsigned char c = 0;
-			    while(!serialHasChar(0) && !(c=ps2_buf_pull())){
+				uint16_t c = 0;
+			    while(!serialHasChar(0) && !((c=ps2_buf_pull()) && !(c&PS2_RELEASED))){
 				
 				}
 				if(serialHasChar(0)){
 					PORTA = serialGet(0); 
 				}
 				else{
-					if((c&PS2_RELEASED)){
-						break;
-					}
+
 					PORTA = c;
 				}
 				write_ack_6522();

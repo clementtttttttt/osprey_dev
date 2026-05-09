@@ -114,6 +114,8 @@ backspace:
 	bmi getline 
 nextchar:
 	jsr getchar
+	cmpa #$f0
+	lbeq skipup
 	sta IN,y
 	jsr echo
 	cmpa #$d
@@ -220,6 +222,10 @@ xamnext	stx MODEH
 mod8chk	lda XAML
 	anda #$7
 	bra nxtprnt
+skipup:
+	jsr getchar
+	lbra wozmon
+	
 prbyte:	
 	pshs a
 	lsra

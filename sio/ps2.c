@@ -52,10 +52,7 @@ ps2_read(void)
 		/* all bits received */
 		_decode(data);
 		bitcount = 11;
-		
-		char test[7];
-		snprintf(test, 7, "?%.2x\r\n", data);
-		draw_string(test);
+	
 	} 
 }
 
