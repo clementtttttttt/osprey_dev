@@ -5,6 +5,7 @@
 
 class ILI9488 {
 	uint32_t (*m_fb)[320];
+	uint32_t m_vram[480][320];
 
 	enum state_t {
 		ST_IDLE,
@@ -14,7 +15,7 @@ class ILI9488 {
 	state_t m_state;
 
 	uint8_t m_cmd;
-	uint8_t m_params[4];
+	uint8_t m_params[16];
 	uint8_t m_param_idx;
 	uint8_t m_param_count;
 
@@ -25,6 +26,9 @@ class ILI9488 {
 	uint8_t m_pixel_format;
 	uint8_t m_madctl;
 
+	uint16_t m_tfa, m_vsa, m_bfa;
+	uint16_t m_vscroll_start;
+
 	uint8_t m_pixel_buf[3];
 	uint8_t m_pixel_idx;
 
@@ -34,6 +38,7 @@ class ILI9488 {
 	void exec_cmd();
 	void write_rgb111(uint8_t rgb);
 	void write_rgb666(uint8_t r, uint8_t g, uint8_t b);
+	void apply_madctl(uint16_t &x, uint16_t &y);
 
 	const char *cmd_name(uint8_t cmd);
 
@@ -44,6 +49,7 @@ public:
 	void set_cs(bool high);
 	void write(uint8_t data);
 	void reset();
+	void flush();
 	void set_debug(bool on);
 
 private:

@@ -70,6 +70,8 @@ ILI9488::ILI9488(uint32_t fb[480][320])
 	, m_col(0), m_page(0)
 	, m_pixel_format(0x06)
 	, m_madctl(0)
+	, m_tfa(0), m_vsa(480), m_bfa(0)
+	, m_vscroll_start(0)
 	, m_pixel_idx(0)
 	, m_dc(false)
 	, m_cs(true)
@@ -258,32 +260,42 @@ void ILI9488::exec_cmd()
 			m_pixel_idx = 0;
 			if (m_debug) std::cerr << "[ILI9488]   -> RAMWRC continue @(" << m_col << "," << m_page << ")" << std::endl;
 			break;
-		case 0x36:
-			m_madctl = m_params[0];
-			if (m_debug) std::cerr << "[ILI9488]   -> MADCTL 0x" << std::hex << (int)m_madctl << std::dec << std::endl;
-			break;
-		default:
-			break;
+	case 0x33:
+		m_tfa = (m_params[0] << 8) | m_params[1];
+		m_vsa = (m_params[2] << 8) | m_params[3];
+		m_bfa = (m_params[4] << 8) | m_params[5];
+		if (m_debug) std::cerr << "[ILI9488]   -> VSCRDEF TFA=" << m_tfa << " VSA=" << m_vsa << " BFA=" << m_bfa << std::endl;
+		break;
+	case 0x36:
+		m_madctl = m_params[0];
+		if (m_debug) std::cerr << "[ILI9488]   -> MADCTL 0x" << std::hex << (int)m_madctl << std::dec << std::endl;
+		break;
+	case 0x37:
+		m_vscroll_start = (m_params[0] << 8) | m_params[1];
+		if (m_debug) std::cerr << "[ILI9488]   -> VSCRSADD " << m_vscroll_start << std::endl;
+		break;
+	default:
+		break;
 	}
 }
 
-void ILI9488::write_rgb111(uint8_t rgb)
+void ILI9488::apply_madctl(uint16_t &x, uint16_t &y)
 {
-	uint16_t x = m_col;
-	uint16_t y = m_page;
-
-	if (m_madctl & 0x80) return;
+	if (m_madctl & 0x80) y = 479 - y;
 	if (m_madctl & 0x40) x = 319 - x;
 	if (m_madctl & 0x20) y = 479 - y;
 	if (m_madctl & 0x10) { uint16_t t = x; x = y; y = t; }
 	if (m_madctl & 0x08) x = 319 - x;
 	if (m_madctl & 0x04) y = 479 - y;
+}
 
-	if (x < 320 && y < 480) {
+void ILI9488::write_rgb111(uint8_t rgb)
+{
+	if (m_page < 480 && m_col < 320) {
 		uint8_t r8 = (rgb & 0x20) ? 0xFF : 0x00;
 		uint8_t g8 = (rgb & 0x10) ? 0xFF : 0x00;
 		uint8_t b8 = (rgb & 0x08) ? 0xFF : 0x00;
-		m_fb[y][x] = (r8 << 24) | (g8 << 16) | (b8 << 8) | 0xFF;
+		m_vram[m_page][m_col] = (r8 << 24) | (g8 << 16) | (b8 << 8) | 0xFF;
 	}
 
 	m_col++;
@@ -294,19 +306,11 @@ void ILI9488::write_rgb111(uint8_t rgb)
 			m_page = m_page_start;
 	}
 
-	x = m_col;
-	y = m_page;
-	if (m_madctl & 0x40) x = 319 - x;
-	if (m_madctl & 0x20) y = 479 - y;
-	if (m_madctl & 0x10) { uint16_t t = x; x = y; y = t; }
-	if (m_madctl & 0x08) x = 319 - x;
-	if (m_madctl & 0x04) y = 479 - y;
-
-	if (x < 320 && y < 480) {
+	if (m_page < 480 && m_col < 320) {
 		uint8_t r8 = (rgb & 0x04) ? 0xFF : 0x00;
 		uint8_t g8 = (rgb & 0x02) ? 0xFF : 0x00;
 		uint8_t b8 = (rgb & 0x01) ? 0xFF : 0x00;
-		m_fb[y][x] = (r8 << 24) | (g8 << 16) | (b8 << 8) | 0xFF;
+		m_vram[m_page][m_col] = (r8 << 24) | (g8 << 16) | (b8 << 8) | 0xFF;
 	}
 
 	m_col++;
@@ -320,26 +324,13 @@ void ILI9488::write_rgb111(uint8_t rgb)
 
 void ILI9488::write_rgb666(uint8_t r, uint8_t g, uint8_t b)
 {
-	uint16_t x = m_col;
-	uint16_t y = m_page;
-
-	if (m_madctl & 0x80) return;
-	if (m_madctl & 0x40) x = 319 - x;
-	if (m_madctl & 0x20) y = 479 - y;
-	if (m_madctl & 0x10) { uint16_t t = x; x = y; y = t; }
-	if (m_madctl & 0x08) x = 319 - x;
-	if (m_madctl & 0x04) y = 479 - y;
-
-	if (x >= 320 || y >= 480) goto advance;
-
-	{
+	if (m_page < 480 && m_col < 320) {
 		uint8_t r8 = r & 0xFC;
 		uint8_t g8 = g & 0xFC;
 		uint8_t b8 = b & 0xFC;
-		m_fb[y][x] = (r8 << 24) | (g8 << 16) | (b8 << 8) | 0xFF;
+		m_vram[m_page][m_col] = (r8 << 24) | (g8 << 16) | (b8 << 8) | 0xFF;
 	}
 
-advance:
 	m_col++;
 	if (m_col > m_col_end) {
 		m_col = m_col_start;
@@ -364,5 +355,29 @@ void ILI9488::reset()
 	m_page = 0;
 	m_pixel_format = 0x06;
 	m_madctl = 0;
+	m_tfa = 0;
+	m_vsa = 480;
+	m_bfa = 0;
+	m_vscroll_start = 0;
 	m_pixel_idx = 0;
+	for (int i = 0; i < 480; i++)
+		for (int j = 0; j < 320; j++)
+			m_vram[i][j] = 0;
+}
+
+void ILI9488::flush()
+{
+	for (uint16_t gram_y = 0; gram_y < 480; gram_y++) {
+		uint16_t display_y = gram_y;
+		if (m_vsa > 0 && gram_y >= m_tfa && gram_y < m_tfa + m_vsa)
+			display_y = m_tfa + ((gram_y - m_vscroll_start + m_vsa) % m_vsa);
+
+		for (uint16_t gram_x = 0; gram_x < 320; gram_x++) {
+			uint16_t x = gram_x;
+			uint16_t y = display_y;
+			apply_madctl(x, y);
+			if (x < 320 && y < 480)
+				m_fb[y][x] = m_vram[gram_y][gram_x];
+		}
+	}
 }

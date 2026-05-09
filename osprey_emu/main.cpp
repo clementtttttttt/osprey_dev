@@ -495,6 +495,7 @@ int main( int argc, char * argv[] )
 			}
         }
 
+        lcd->flush();
         sdl.draw();
 
     }

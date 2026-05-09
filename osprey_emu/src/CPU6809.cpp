@@ -1,7 +1,7 @@
 #include "CPU6809.h"
 #include <iostream>
 
-#define CPU6809_DEBUG
+//#define CPU6809_DEBUG
 #ifdef CPU6809_DEBUG
 #include <iomanip>
 static const char* mnemonic_table[256] = {
