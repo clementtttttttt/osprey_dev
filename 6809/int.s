@@ -21,7 +21,9 @@ irq_handler:
 	sta WATCHDOG_REMAINING_TICKS 
 	
 	
-
+		ldx #gui_str
+	jsr putstr
+	
 	lda #$40
 	sta VIA1_IFR ;reset interrupt
 	

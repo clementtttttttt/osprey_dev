@@ -89,7 +89,7 @@ void CPU6809::set_reg16(int r, uint16_t v) {
     regs_16[r] = v;
 }
 
-void CPU6809::assert_irq() { m_irq = true; }
+void CPU6809::assert_irq() { m_irq = true; m_waiting = false; }
 
 uint16_t CPU6809::read16(uint16_t addr) {
     return ((uint16_t)read_mem(addr) << 8) | read_mem(addr + 1);
@@ -461,7 +461,7 @@ void CPU6809::op_tfr() {
 }
 
 void CPU6809::op_nop() {}
-void CPU6809::op_sync() {}
+void CPU6809::op_sync() { m_waiting = true; }
 
 void CPU6809::op_lbra()  { int16_t off = ea_rel16(); regs_16[reg_pc] += off; }
 void CPU6809::op_lbsr()  { int16_t off = ea_rel16(); spush16(regs_16[reg_pc]); regs_16[reg_pc] += off; }
@@ -908,6 +908,16 @@ void CPU6809::run_cycles(uint32_t c) {
 #ifdef CPU6809_DEBUG
             std::cout << "\n=== RESET -> PC=" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << regs_16[reg_pc] << " ===\n" << std::dec << std::endl;
 #endif
+            continue;
+        }
+
+        if (m_waiting) {
+            if (m_irq) {
+                m_waiting = false;
+                continue;
+            }
+            m_total_cycles += c;
+            c = 0;
             continue;
         }
 
