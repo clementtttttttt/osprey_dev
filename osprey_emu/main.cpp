@@ -378,7 +378,10 @@ int main( int argc, char * argv[] )
 	//lcd->set_debug(true);
 
     elf_firmware_t firm = {{0}};
-    elf_read_firmware("test.elf", &firm);
+    if(elf_read_firmware("test.elf", &firm) != 0){
+		std::cout << "Error reading test.elf (SIO firmware). You can compile it in the sio directory of the repo." << std::endl;
+		throw std::runtime_error("Could not open SIO firmware");
+	}
 
     sio = avr_make_mcu_by_name("atmega16");
     const static int AVR_FREQ = 16000000;
@@ -464,8 +467,14 @@ int main( int argc, char * argv[] )
 		NULL);
 
     std::ifstream rom_file("rom", std::ios::binary);
+    if(rom_file.fail()){
+		std::cout << "Cannot open file \"rom\" (6809 ROM): " << std::error_code{errno, std::generic_category()}.message()  << ". \nYou can compile it in the 6809 directory of the repo." << std::endl;
+		throw std::runtime_error("Could not open 6809 ROM");
+	}
+    
     rom_file.read(reinterpret_cast<char*>(&rom[0]), ROM_SZ);
 
+	
 
 	
 	//connect cpu irq
