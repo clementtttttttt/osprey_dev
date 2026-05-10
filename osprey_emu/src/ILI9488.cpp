@@ -1,6 +1,7 @@
 #include "ILI9488.h"
 #include <iostream>
 #include <iomanip>
+#include <cstring>
 
 static uint8_t ilitab_cmd_params(uint8_t cmd) {
 	switch (cmd) {
@@ -279,14 +280,19 @@ void ILI9488::exec_cmd()
 	}
 }
 
-void ILI9488::apply_madctl(uint16_t &x, uint16_t &y)
+SDL_RendererFlip ILI9488::get_flip() const
 {
-	if (m_madctl & 0x80) y = 479 - y;
-	if (m_madctl & 0x40) x = 319 - x;
-	if (m_madctl & 0x20) y = 479 - y;
-	if (m_madctl & 0x10) { uint16_t t = x; x = y; y = t; }
-	if (m_madctl & 0x08) x = 319 - x;
-	if (m_madctl & 0x04) y = 479 - y;
+	SDL_RendererFlip f = SDL_FLIP_NONE;
+	if (!!(m_madctl & 0x40) ^ !!(m_madctl & 0x08))
+		f = (SDL_RendererFlip)(f | SDL_FLIP_HORIZONTAL);
+	if (!!(m_madctl & 0x80) ^ !!(m_madctl & 0x20) ^ !!(m_madctl & 0x04))
+		f = (SDL_RendererFlip)(f | SDL_FLIP_VERTICAL);
+	return f;
+}
+
+double ILI9488::get_angle() const
+{
+	return (m_madctl & 0x10) ? 90.0 : 0.0;
 }
 
 void ILI9488::write_rgb111(uint8_t rgb)
@@ -372,12 +378,6 @@ void ILI9488::flush()
 		if (m_vsa > 0 && gram_y >= m_tfa && gram_y < m_tfa + m_vsa)
 			display_y = m_tfa + ((gram_y - m_vscroll_start + m_vsa) % m_vsa);
 
-		for (uint16_t gram_x = 0; gram_x < 320; gram_x++) {
-			uint16_t x = gram_x;
-			uint16_t y = display_y;
-			apply_madctl(x, y);
-			if (x < 320 && y < 480)
-				m_fb[y][x] = m_vram[gram_y][gram_x];
-		}
+		std::memcpy(m_fb[display_y], m_vram[gram_y], 320 * sizeof(uint32_t));
 	}
 }

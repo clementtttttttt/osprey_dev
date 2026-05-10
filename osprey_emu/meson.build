@@ -1,6 +1,6 @@
 project('osprey_emu', 'cpp',
     version: '0.1',
-    default_options: ['cpp_std=c++14', 'warning_level=2'])
+    default_options: ['cpp_std=c++14', 'warning_level=2', 'optimization=2'])
 
 cpp = meson.get_compiler('cpp')
 
@@ -33,5 +33,6 @@ executable('osprey_emu',
     files('main.cpp', 'src/CPU6809.cpp', 'src/VIA6522.cpp', 'src/ILI9488.cpp', 'src/PS2Keyboard.cpp'),
     include_directories: [inc_dir],
     dependencies: [sdl2_dep, simavr_dep, elf_lib],
-    cpp_args: ['-Wall'],
+    cpp_args: ['-Wall', '-pg'],
+    link_args: ['-pg'],
 )

@@ -83,7 +83,7 @@ class SDL
 public:
     SDL( Uint32 flags = 0 );
     virtual ~SDL();
-    void draw();
+    void draw(ILI9488* lcd = nullptr);
     virtual bool poll_events(PS2Keyboard* kbd = nullptr);
     uint32_t (*get_fb())[320] { return pixels; }
 
@@ -132,15 +132,16 @@ bool SDL::poll_events(PS2Keyboard* kbd){
     }
     return true;
 }
-void SDL::draw()
+void SDL::draw(ILI9488* lcd)
 {
     SDL_UpdateTexture(fb, NULL, pixels, 320*sizeof(uint32_t));
     SDL_RenderClear( m_renderer );
-    SDL_RenderCopy(m_renderer, fb, NULL, NULL);
-    // Show the window
+    if (lcd) {
+        SDL_RenderCopyEx(m_renderer, fb, NULL, NULL, lcd->get_angle(), NULL, lcd->get_flip());
+    } else {
+        SDL_RenderCopy(m_renderer, fb, NULL, NULL);
+    }
     SDL_RenderPresent( m_renderer );
-
-
 }
 
 uint8_t rmf(uint16_t addr);
@@ -508,7 +509,7 @@ int main( int argc, char * argv[] )
         }
 
         lcd->flush();
-        sdl.draw();
+        sdl.draw(lcd);
 
     }
 

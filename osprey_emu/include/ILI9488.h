@@ -2,6 +2,7 @@
 #define ILI9488_H
 
 #include <cstdint>
+#include <SDL.h>
 
 class ILI9488 {
 	uint32_t (*m_fb)[320];
@@ -38,7 +39,6 @@ class ILI9488 {
 	void exec_cmd();
 	void write_rgb111(uint8_t rgb);
 	void write_rgb666(uint8_t r, uint8_t g, uint8_t b);
-	void apply_madctl(uint16_t &x, uint16_t &y);
 
 	const char *cmd_name(uint8_t cmd);
 
@@ -51,6 +51,9 @@ public:
 	void reset();
 	void flush();
 	void set_debug(bool on);
+
+	SDL_RendererFlip get_flip() const;
+	double get_angle() const;
 
 private:
 	bool m_debug;
