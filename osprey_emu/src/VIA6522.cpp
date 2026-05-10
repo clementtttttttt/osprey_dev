@@ -51,12 +51,15 @@ uint8_t VIA6522::reg_read(uint16_t in){
 			case DDRAR:
 				return ddra;
 			case IRAR: 
-				ifr &= ~IFR_CA1;
+				ifr &= ~(IFR_CA1 | IFR_CA2);
 				
 				if(((pcr >> 1) & 0b111) == 0b101){
 					ca2_low_counter = 2;
 					on_ca2_w(false);
 				} 
+				return porta;
+				break;
+			case IRA_NOHSR:
 				return porta;
 				break;
 			case IRBR:
@@ -157,7 +160,8 @@ void VIA6522::on_pb_w(uint8_t in){
 	if(pb_w_cb != nullptr){
 		pb_w_cb(in);
 	}
-}	
+
+	}
 
 void VIA6522::fire_irq(uint8_t mode){
 	ifr |= mode;
@@ -169,6 +173,7 @@ void VIA6522::fire_irq(uint8_t mode){
 
 void VIA6522::phi2_tick(){
 	switch(static_cast<ACR_T1_MODES>(acr.t1_modes)){
+		case T1_FR_PB7:
 		case T1_OS:
 			if(t1count > 0){
 				if(--t1count ==0){
@@ -204,9 +209,12 @@ void VIA6522::phi2_tick(){
 void VIA6522::reg_write(uint16_t in, uint8_t data){
 	REG6522_W addr = static_cast<REG6522_W>(in);
 	switch(addr){
+		case ORA_NOHSW:
+			porta = data;
+			break;
 		case ORAW:
 			porta = data;
-			ifr &= ~(IFR_CA1); //clear ca1 int
+			ifr &= ~(IFR_CA1 | IFR_CA2); //clear ca1 int
 			
 			if(((pcr >> 1) & 0b111) == 0b101){
 				ca2_low_counter = 2;
@@ -232,6 +240,10 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 		case T1_LATCH_HW:
 			t1latch &= 0xff; //clear hi
 			t1latch |= ((uint16_t)data<<8);
+			break;
+		case T1_COUNT_HW:
+			t1count &= 0xff;
+			t1count |= (uint16_t)data << 8;
 			break;
 		case PCRW:
 		{
@@ -284,14 +296,13 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 		case ACRW:
 			acr.raw = data;
 			break;
-		default:
-								#ifdef VIA_DBG
 
-			std::cout <<"unimplemented VIA reg write " << std::hex <<in << std::endl;
-							#endif
-			break;
 		
 		
 	}
+									#ifdef VIA_DBG
+
+			std::cout <<"unimplemented VIA reg write " << std::hex <<in << std::endl;
+							#endif
 
 }
