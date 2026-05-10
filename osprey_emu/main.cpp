@@ -100,6 +100,7 @@ SDL::SDL( Uint32 flags )
         throw InitError();
     SDL_SetHint (SDL_HINT_RENDER_VSYNC, "1");
     SDL_SetHint (SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitor");
+    SDL_RenderSetVSync(m_renderer, 1);
     SDL_SetWindowTitle(m_window, "OSPREY PORTBALE COMPUTING UNIT EMULATOR");
     fb = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 320, 480);
 }

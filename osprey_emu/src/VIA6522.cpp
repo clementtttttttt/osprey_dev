@@ -245,7 +245,18 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 			t1count &= 0xff;
 			t1count |= (uint16_t)data << 8;
 			break;
+		case T2_COUNT_HW:
+			t2count = 0;
+			t2count = (uint16_t)data << 8;
+			t2count |= t2latch & 0xff;
+			ifr &= ~(IFR_T2);
+			break;
+		case T2_LATCH_LW:
+			t2latch &= 0xff00;
+			t2latch |= data;
+			break;
 		case PCRW:
+		
 		{
 			pcr = data;
 			
