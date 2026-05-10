@@ -87,7 +87,7 @@ gui_menu_constructor:
 	sty ,x++
 	ldd #$FFFF
 	std ,x++
-	ldy 4,s
+	ldd 4,s
 	std ,x++
 
 ;setting names*[] arr
@@ -201,8 +201,8 @@ gui_list_add_row:
 ;s+2: name ptr
 gui_menu_add_item:
 	leax 8,x
-1	ldx ,x++
-	bne 1b ;empty entry
+1	ldd ,x++
+	bne 1b ;not zero = not empty
 	
 	leax -2, x
 	ldy 2,s ;get name ptr
@@ -213,15 +213,25 @@ gui_menu_add_item:
 ;s+2 = x coord
 ;s+4 = y coord
 ; MUST PRESERVE Y
+;returns str len after print in b
 gui_menu_draw:
 	pshs x,y
 	ldx 6,s
 	ldy 8,s
 	jsr setc
-	puls x,y
-	ldx ,x
-	jsr putstr
 	
+
+	
+	puls x,y
+	
+	ldx ,x
+	pshs x,y
+	jsr putstr_gui
+	puls x,y
+	
+
+
+	ldb ,x
 	
 	
 	rts
@@ -275,12 +285,12 @@ gui_toolbar_draw:
 	leay d,y
 	jsr setc
 	
-	
+
 	
 	puls y
 	
 	ldx 7,y ;load x width
-	
+
 	pshs x,y
 	;print bar
 1	lda #205 ;double line horizontal
@@ -289,17 +299,18 @@ gui_toolbar_draw:
 	bne 1b
 	
 	puls x,y
-	
+
 	leas -6, s
 	sty 4,s ;toolbar addr in s+4
 	ldx 3,y ;toolbar y coord
 	ldd 10,s ;load y offset
 	leax d,x ;add y offset
+
 	stx 2,s ; s+2 = y coord
 	ldx 1,y ;toolbar x coord in s    
-	inx ;menu coord 
 	ldd 8,s ;load x offset 
 	leax d,x ;add x offset 
+	inx		 ;leftmost padding for first toolbar menu entry
 	stx ,s ; s = x coord
 	
 	ldy 4,s ;get toolbar addr
@@ -309,10 +320,13 @@ gui_toolbar_draw:
 	beq 3f
 	jsr gui_menu_draw
 	
+
 	ldx ,s; margin of two between menu items
-	leax 2,x
+
+	inx
+	leax b,x ;add str len
 	stx ,s
-	
+
 	bra 2b
 3
 	
@@ -364,7 +378,7 @@ gui_draw_queue:
 	iny
 	
 	sty 2,s ;widgets at next line
-	
+		
 	leax 14, x ;skip to list of widgets
 	
 
@@ -398,5 +412,12 @@ gui_draw_func_table
 	fdb gui_toolbar_draw
 	
 
+;x = str ptr
+putstr_gui	ldb ,x+	;load x and inc
+1	lda ,x+
+	lbsr putchar
+	decb
+	bne 1b
+		rts
 
 

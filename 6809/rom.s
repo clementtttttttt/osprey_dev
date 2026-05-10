@@ -114,8 +114,8 @@ main
 	leas -64, s; reserve 64 bytes on stack for own use
 	;s: queue_ptr
 	
-	ldb #1
-	jsr bmalloc ; allocate 256 bytes 
+	ldb #2
+	jsr bmalloc ; allocate 512 bytes 
 	;FIXME: multi bank switching stuff to be dealt with
 	stx ,s
 	
@@ -155,8 +155,9 @@ main
 	ldx ,s
 	leax 128,x ;menu object stored in same block, 32 bytes
 	ldy #file_menu_str
+	leas -2,s
 	ldd #12
-	pshs d
+	std ,s
 	jsr gui_menu_constructor
 	
 	leas 2,s ;pop off
@@ -166,6 +167,23 @@ main
 	leay 64, x ;menu
 	jsr gui_toolbar_add_menu
 	
+
+	ldx ,s
+	leax 128+32,x ;menu object stored in same block, 32 bytes
+
+	ldy #edit_menu_str
+	leas -2,s
+	ldd #12
+	std ,s
+	jsr gui_menu_constructor
+	
+	leas 2,s ;pop off
+	
+	ldx ,s
+	leax 64, x ;toolbar 
+	leay 64+32, x ;menu
+
+	jsr gui_toolbar_add_menu
 	
 	ldx ,s ; queue address in x
 	leay 64,x ;widget at 64 bytes after queue 
@@ -207,7 +225,9 @@ main
 	bra 5b
 
 file_man_str fcc "File manager",0
-file_menu_str fcc "File",0
+file_menu_str fcc 4,"File"
+edit_menu_str fcc 4,"Edit"
+
 gui_str fcc "NO HANGS",0
 hello_str fcc "Hello from 6809!", 10, 13, "Welcome to WOZMON!",10,13,0
 malloc_str fcc "ADR",10,13,0

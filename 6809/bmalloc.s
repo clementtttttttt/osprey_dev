@@ -20,11 +20,9 @@ bmalloc_init
 	
 bmfree
 	cmpx #$8000
-	bls 1f
+	blo 1f
 	;not ran for LOWRAM addrs
 	clra
-	aslb
-	rola
 	aslb
 	rola
 	aslb
@@ -134,9 +132,22 @@ bmalloc
 	rts 
 6	
 	;a = mask, x = loc in pagemap
-	;set the bit
-	ora ,x
-	sta ,x ;set the bit in x
+	;mark all bits in the run
+	ldb ,s		; b = page count
+	pshs a		; save last page mask
+	pshs x		; save last page byte ptr
+	pshs b		; counter on stack
+9	ora ,x
+	sta ,x		; mark bit
+	lsra			; shift to previous page in same byte
+	bcc 10f
+	dex			; previous byte
+	lda #$80		; high bit of previous byte
+10	dec ,s		; decrement counter
+	bne 9b
+	leas 1,s		; discard counter
+	puls x		; restore last page byte ptr
+	puls a		; restore last page mask
 	
 	leax -PAGE_MAP, x
 	;convert mask to 1-8 idx 
@@ -178,17 +189,17 @@ bmalloc
 8	leax -$80,x  ;sub by 80 to get banked ram addr 
 	tfr x,d
 	lsra
-	rora
+	rorb
 	lsra
-	rora
+	rorb
 	lsra
-	rora
+	rorb
 	lsra
-	rora
+	rorb
 	lsra
-	rora
+	rorb
 	lsra
-	rora
+	rorb
 	;bank number in b
 	pshs b
 	tfr x,d

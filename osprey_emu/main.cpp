@@ -460,6 +460,10 @@ int main( int argc, char * argv[] )
 	VIA0.set_on_irq_cb(irq_cb);
 
 
+
+    uint64_t perf_freq = SDL_GetPerformanceFrequency();
+    uint64_t last_counter = SDL_GetPerformanceCounter();
+
     while(sdl.poll_events(&ps2kbd)){
         ++ticks;
 
@@ -475,7 +479,16 @@ int main( int argc, char * argv[] )
             }
         }
 
-        for(int i=0;i<AVR_FREQ/60;++i){
+        uint64_t now = SDL_GetPerformanceCounter();
+        uint64_t elapsed_ticks = now - last_counter;
+        last_counter = now;
+
+        uint32_t avr_cycles = (uint32_t)(elapsed_ticks * AVR_FREQ / perf_freq);
+
+        const uint32_t max_cycles_per_frame = AVR_FREQ / 30;
+        if (avr_cycles > max_cycles_per_frame) avr_cycles = max_cycles_per_frame;
+
+        for(uint32_t i=0;i<avr_cycles;++i){
             avr_run(sio);
             if(debug_step){
 #ifndef NO_AVR_TRACE
