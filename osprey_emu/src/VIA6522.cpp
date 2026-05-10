@@ -34,6 +34,18 @@ uint8_t VIA6522::ext_get_sr(){
 uint8_t VIA6522::reg_read(uint16_t in){
 		REG6522_R addr = static_cast<REG6522_R>(in);
 		switch(addr){
+			case T1_COUNT_LR:
+				return t1count & 0xff;
+			case T1_COUNT_HR:
+				return (t1count >> 8) & 0xff;
+			case T1_LATCH_LR:
+				return t1latch & 0xff;
+			case T1_LATCH_HR:
+				return (t1latch >> 8) & 0xff;
+			case T2_COUNT_LR:
+				return t2count & 0xff;
+			case T2_COUNT_HR:
+				return (t2count >> 8) & 0xff;
 			case DDRBR:
 				return ddrb;
 			case DDRAR:
