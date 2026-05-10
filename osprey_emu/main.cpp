@@ -4,6 +4,9 @@
 #include <cstdlib>
 #include <cstdio>
 #include <SDL.h>
+#include <random>
+
+
 #include <simavr/sim_elf.h>
 #include <simavr/avr_ioport.h>
 #include <simavr/avr_spi.h>
@@ -383,6 +386,15 @@ int main( int argc, char * argv[] )
 
     avr_init(sio);
     avr_load_firmware(sio, &firm);
+    
+    std::random_device rd;
+    std::mt19937 m(rd());//memory randomiser
+	std::uniform_int_distribution<int> dist(0, 255);
+  
+	//stupidly sophisticated random gen for randomising memory lol
+    for(int i=0; i<LOW_MEM_SZ; ++i){
+		low_mem[i] = (static_cast<uint8_t>(dist(m)));
+	}
 
     //connect all pins on port a to 6522 (atmega write, 6522 in)
 
