@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <queue>
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <simavr/sim_avr.h>
 
 class PS2Keyboard {

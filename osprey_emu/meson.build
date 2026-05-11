@@ -4,12 +4,12 @@ project('osprey_emu', 'cpp',
 
 cpp = meson.get_compiler('cpp')
 
-# SDL2 - use find_library with 64-bit path first
-sdl2_inc = include_directories('/usr/include/SDL2')
-sdl2_lib = cpp.find_library('SDL2', dirs: ['/usr/lib64'], required: true)
-sdl2_dep = declare_dependency(
-    include_directories: sdl2_inc,
-    dependencies: sdl2_lib,
+# SDL3 - use find_library with 64-bit path first
+sdl3_inc = include_directories('/usr/include/SDL3')
+sdl3_lib = cpp.find_library('SDL3', dirs: ['/usr/lib64'], required: true)
+sdl3_dep = declare_dependency(
+    include_directories: sdl3_inc,
+    dependencies: sdl3_lib,
 )
 
 # simavr
@@ -32,7 +32,7 @@ inc_dir = include_directories('include')
 executable('osprey_emu',
     files('main.cpp', 'src/CPU6809.cpp', 'src/VIA6522.cpp', 'src/ILI9488.cpp', 'src/PS2Keyboard.cpp'),
     include_directories: [inc_dir],
-    dependencies: [sdl2_dep, simavr_dep, elf_lib],
+    dependencies: [sdl3_dep, simavr_dep, elf_lib],
     cpp_args: ['-Wall', '-pg'],
     link_args: ['-pg'],
 )

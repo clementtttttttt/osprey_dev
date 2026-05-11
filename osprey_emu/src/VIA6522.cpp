@@ -269,12 +269,7 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 				case CX2_LOW:
 					on_cb2_w(false);
 					break;
-				default:
-				#ifdef VIA_DBG
-					std::cout << "unimplemented PCR write CB " << b_bits << std::endl;
-									#endif
 
-					break;
 			}
 			
 			switch(a_bits){
@@ -284,11 +279,7 @@ void VIA6522::reg_write(uint16_t in, uint8_t data){
 				case CX2_LOW:
 					on_ca2_w(false);
 					break;
-				default:
-				#ifdef VIA_DBG
-					std::cout << "unimplemented PCR write Ca " << a_bits <<  std::endl;
-				#endif
-					break;
+
 			}
 		}
 			break;

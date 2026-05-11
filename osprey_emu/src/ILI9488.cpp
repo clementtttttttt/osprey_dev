@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cstring>
+#include <stdexcept>
 
 static uint8_t ilitab_cmd_params(uint8_t cmd) {
 	switch (cmd) {
@@ -60,8 +61,10 @@ static uint8_t ilitab_cmd_params(uint8_t cmd) {
 	}
 }
 
-ILI9488::ILI9488(uint32_t fb[480][320])
-	: m_fb(fb)
+ILI9488::ILI9488()
+	: m_window(nullptr)
+	, m_renderer(nullptr)
+	, m_texture(nullptr)
 	, m_state(ST_IDLE)
 	, m_cmd(0)
 	, m_param_idx(0)
@@ -78,6 +81,34 @@ ILI9488::ILI9488(uint32_t fb[480][320])
 	, m_cs(true)
 	, m_debug(false)
 {
+	if (!SDL_Init(SDL_INIT_VIDEO))
+		throw std::runtime_error(SDL_GetError());
+
+	m_window = SDL_CreateWindow("OSPREY PORTABLE COMPUTING UNIT EMULATOR", 640, 960, SDL_WINDOW_HIGH_PIXEL_DENSITY);
+	if (!m_window)
+		throw std::runtime_error(SDL_GetError());
+
+	m_renderer = SDL_CreateRenderer(m_window, nullptr);
+	if (!m_renderer)
+		throw std::runtime_error(SDL_GetError());
+
+	SDL_SetRenderVSync(m_renderer, 1);
+
+	m_texture = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 320, 480);
+	if (!m_texture)
+		throw std::runtime_error(SDL_GetError());
+
+	SDL_SetTextureScaleMode(m_texture, SDL_SCALEMODE_NEAREST);
+
+	reset();
+}
+
+ILI9488::~ILI9488()
+{
+	if (m_texture) SDL_DestroyTexture(m_texture);
+	if (m_renderer) SDL_DestroyRenderer(m_renderer);
+	if (m_window) SDL_DestroyWindow(m_window);
+	SDL_Quit();
 }
 
 const char *ILI9488::cmd_name(uint8_t cmd)
@@ -280,21 +311,6 @@ void ILI9488::exec_cmd()
 	}
 }
 
-SDL_RendererFlip ILI9488::get_flip() const
-{
-	SDL_RendererFlip f = SDL_FLIP_NONE;
-	if (!!(m_madctl & 0x40) ^ !!(m_madctl & 0x08))
-		f = (SDL_RendererFlip)(f | SDL_FLIP_HORIZONTAL);
-	if (!!(m_madctl & 0x80) ^ !!(m_madctl & 0x20) ^ !!(m_madctl & 0x04))
-		f = (SDL_RendererFlip)(f | SDL_FLIP_VERTICAL);
-	return f;
-}
-
-double ILI9488::get_angle() const
-{
-	return (m_madctl & 0x10) ? 90.0 : 0.0;
-}
-
 void ILI9488::write_rgb111(uint8_t rgb)
 {
 	if (m_page < 480 && m_col < 320) {
@@ -380,4 +396,16 @@ void ILI9488::flush()
 
 		std::memcpy(m_fb[display_y], m_vram[gram_y], 320 * sizeof(uint32_t));
 	}
+
+	SDL_FlipMode flip = SDL_FLIP_NONE;
+	if (!!(m_madctl & 0x40) ^ !!(m_madctl & 0x08))
+		flip = (SDL_FlipMode)(flip | SDL_FLIP_HORIZONTAL);
+	if (!!(m_madctl & 0x80) ^ !!(m_madctl & 0x20) ^ !!(m_madctl & 0x04))
+		flip = (SDL_FlipMode)(flip | SDL_FLIP_VERTICAL);
+	double angle = (m_madctl & 0x10) ? 90.0 : 0.0;
+
+	SDL_UpdateTexture(m_texture, nullptr, m_fb, 320 * static_cast<int>(sizeof(uint32_t)));
+	SDL_RenderClear(m_renderer);
+	SDL_RenderTextureRotated(m_renderer, m_texture, nullptr, nullptr, angle, nullptr, flip);
+	SDL_RenderPresent(m_renderer);
 }

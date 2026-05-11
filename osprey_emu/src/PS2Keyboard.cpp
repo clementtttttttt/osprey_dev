@@ -151,10 +151,10 @@ void PS2Keyboard::queue_scan_ext(uint8_t code)
 
 void PS2Keyboard::handle_event(const SDL_Event &ev)
 {
-	if (ev.type != SDL_KEYDOWN && ev.type != SDL_KEYUP) return;
+	if (ev.type != SDL_EVENT_KEY_DOWN && ev.type != SDL_EVENT_KEY_UP) return;
 
-	SDL_Scancode sc = ev.key.keysym.scancode;
-	if (sc >= SDL_NUM_SCANCODES) return;
+	SDL_Scancode sc = ev.key.scancode;
+	if (sc >= SDL_SCANCODE_COUNT) return;
 
 	uint8_t code = sdl_to_ps2_code(sc);
 	if (!code) {
@@ -162,11 +162,11 @@ void PS2Keyboard::handle_event(const SDL_Event &ev)
 		return;
 	}
 
-	PS2_LOG("SDL sc=" << (int)sc << " -> ps2=0x" << std::hex << (int)code << std::dec << (ev.type == SDL_KEYUP ? " UP" : " DOWN"));
+	PS2_LOG("SDL sc=" << (int)sc << " -> ps2=0x" << std::hex << (int)code << std::dec << (ev.type == SDL_EVENT_KEY_UP ? " UP" : " DOWN"));
 
 	bool extended = (sc == SDL_SCANCODE_KP_ENTER || sc == SDL_SCANCODE_KP_DIVIDE || sc == SDL_SCANCODE_LGUI || sc == SDL_SCANCODE_RCTRL || sc == SDL_SCANCODE_RALT || sc == SDL_SCANCODE_RGUI || sc == SDL_SCANCODE_APPLICATION || sc == SDL_SCANCODE_INSERT || sc == SDL_SCANCODE_HOME || sc == SDL_SCANCODE_PAGEUP || sc == SDL_SCANCODE_DELETE || sc == SDL_SCANCODE_END || sc == SDL_SCANCODE_PAGEDOWN || sc == SDL_SCANCODE_RIGHT || sc == SDL_SCANCODE_LEFT || sc == SDL_SCANCODE_DOWN || sc == SDL_SCANCODE_UP);
 
-	if (ev.type == SDL_KEYUP) {
+	if (ev.type == SDL_EVENT_KEY_UP) {
 		if (extended) {
 			queue_scan_ext(0xF0);
 			queue_scan(code);

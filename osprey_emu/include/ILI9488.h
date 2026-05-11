@@ -2,11 +2,15 @@
 #define ILI9488_H
 
 #include <cstdint>
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 class ILI9488 {
-	uint32_t (*m_fb)[320];
 	uint32_t m_vram[480][320];
+	uint32_t m_fb[480][320];
+
+	SDL_Window   *m_window;
+	SDL_Renderer *m_renderer;
+	SDL_Texture  *m_texture;
 
 	enum state_t {
 		ST_IDLE,
@@ -43,7 +47,8 @@ class ILI9488 {
 	const char *cmd_name(uint8_t cmd);
 
 public:
-	ILI9488(uint32_t fb[480][320]);
+	ILI9488();
+	~ILI9488();
 
 	void set_dc(bool high);
 	void set_cs(bool high);
@@ -51,9 +56,6 @@ public:
 	void reset();
 	void flush();
 	void set_debug(bool on);
-
-	SDL_RendererFlip get_flip() const;
-	double get_angle() const;
 
 private:
 	bool m_debug;

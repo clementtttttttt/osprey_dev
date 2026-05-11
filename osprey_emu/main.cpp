@@ -1,10 +1,9 @@
-#include <exception>
-#include <string>
 #include <iostream>
 #include <cstdlib>
 #include <cstdio>
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <random>
+#include <stdexcept>
 
 
 #include <simavr/sim_elf.h>
@@ -37,33 +36,6 @@ int ticks = 0;
 bool debug_step = false;
 bool debug_advance = false;
 
-class InitError : public std::exception
-{
-    std::string msg;
-public:
-    InitError();
-    InitError( const std::string & );
-    virtual ~InitError() throw();
-    virtual const char * what() const throw();
-};
-
-InitError::InitError() :
-    exception(),
-    msg( SDL_GetError() )
-{
-}
-
-InitError::InitError( const std::string & m ) :
-    exception(),
-    msg( m )
-{
-}
-
-InitError::~InitError() throw()
-{
-}
-
-
 const static int LOW_MEM_SZ = 32768;
 const static int ROM_SZ = 32768;
 
@@ -72,62 +44,19 @@ uint8_t rom[ROM_SZ];
 VIA6522 VIA0;
 VIA6522 VIA1;
 
-const char * InitError::what() const throw()
-{
-    return msg.c_str();
-}
-
-class SDL
-{
-    SDL_Window * m_window;
-    SDL_Renderer * m_renderer;
-    uint32_t pixels[480][320];
-
-public:
-    SDL( Uint32 flags = 0 );
-    virtual ~SDL();
-    void draw(ILI9488* lcd = nullptr);
-    virtual bool poll_events(PS2Keyboard* kbd = nullptr);
-    uint32_t (*get_fb())[320] { return pixels; }
-
-    SDL_Texture *fb;
-};
-
-SDL::SDL( Uint32 flags )
-{
-    if ( SDL_Init( flags ) != 0 )
-        throw InitError();
-
-    if ( SDL_CreateWindowAndRenderer( 320*2, 480*2, SDL_WINDOW_SHOWN,
-                                      &m_window, &m_renderer ) != 0 )
-        throw InitError();
-    SDL_SetHint (SDL_HINT_RENDER_VSYNC, "1");
-    SDL_SetHint (SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitor");
-    SDL_RenderSetVSync(m_renderer, 1);
-    SDL_SetWindowTitle(m_window, "OSPREY PORTBALE COMPUTING UNIT EMULATOR");
-    fb = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 320, 480);
-}
-
-SDL::~SDL()
-{
-    SDL_DestroyWindow( m_window );
-    SDL_DestroyRenderer( m_renderer );
-    SDL_Quit();
-}
-
-bool SDL::poll_events(PS2Keyboard* kbd){
+static bool poll_events(PS2Keyboard* kbd = nullptr){
     SDL_Event ev;
     while(SDL_PollEvent(&ev)){
-        if(ev.type == SDL_QUIT){
+        if(ev.type == SDL_EVENT_QUIT){
             return false;
         }
-        if(ev.type == SDL_KEYDOWN && !ev.key.repeat){
-            if(ev.key.keysym.scancode == SDL_SCANCODE_F1){
+        if(ev.type == SDL_EVENT_KEY_DOWN && !ev.key.repeat){
+            if(ev.key.scancode == SDL_SCANCODE_F1){
                 debug_step = !debug_step;
                 std::cout << "[DEBUG] " << (debug_step ? "STEP MODE (F2=step, F1=run)" : "RUNNING") << std::endl;
                 continue;
             }
-            if(ev.key.keysym.scancode == SDL_SCANCODE_F2){
+            if(ev.key.scancode == SDL_SCANCODE_F2){
                 debug_advance = true;
                 continue;
             }
@@ -135,17 +64,6 @@ bool SDL::poll_events(PS2Keyboard* kbd){
         if(kbd) kbd->handle_event(ev);
     }
     return true;
-}
-void SDL::draw(ILI9488* lcd)
-{
-    SDL_UpdateTexture(fb, NULL, pixels, 320*sizeof(uint32_t));
-    SDL_RenderClear( m_renderer );
-    if (lcd) {
-        SDL_RenderCopyEx(m_renderer, fb, NULL, NULL, lcd->get_angle(), NULL, lcd->get_flip());
-    } else {
-        SDL_RenderCopy(m_renderer, fb, NULL, NULL);
-    }
-    SDL_RenderPresent( m_renderer );
 }
 
 uint8_t rmf(uint16_t addr);
@@ -155,16 +73,16 @@ static void avr_debug_wait_advance() {
 		SDL_PumpEvents();
 		SDL_Event ev;
 		while(SDL_PollEvent(&ev)){
-			if(ev.type == SDL_QUIT) exit(0);
-			if(ev.type == SDL_KEYDOWN && !ev.key.repeat){
-				if(ev.key.keysym.scancode == SDL_SCANCODE_F1){
+			if(ev.type == SDL_EVENT_QUIT) exit(0);
+			if(ev.type == SDL_EVENT_KEY_DOWN && !ev.key.repeat){
+				if(ev.key.scancode == SDL_SCANCODE_F1){
 					debug_step = false;
 					std::cout << "[DEBUG] RUNNING" << std::endl;
 				}
-				if(ev.key.keysym.scancode == SDL_SCANCODE_F2){
+				if(ev.key.scancode == SDL_SCANCODE_F2){
 					debug_advance = true;
 				}
-				if(ev.key.keysym.scancode == SDL_SCANCODE_F3){
+				if(ev.key.scancode == SDL_SCANCODE_F3){
 					int old_flags = fcntl(STDIN_FILENO, F_GETFL);
 					fcntl(STDIN_FILENO, F_SETFL, old_flags & ~O_NONBLOCK);
 					std::cout << "[6809 MEM] addr> " << std::flush;
@@ -370,11 +288,9 @@ avr_irq_t *spi_irq;
 int main( int argc, char * argv[] )
 {
 
-    SDL sdl( SDL_INIT_VIDEO | SDL_INIT_TIMER );
-
     fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
-    lcd = new ILI9488(sdl.get_fb());
+    lcd = new ILI9488();
 	//lcd->set_debug(true);
 
     elf_firmware_t firm = {{0}};
@@ -487,7 +403,7 @@ int main( int argc, char * argv[] )
     uint64_t perf_freq = SDL_GetPerformanceFrequency();
     uint64_t last_counter = SDL_GetPerformanceCounter();
 
-    while(sdl.poll_events(&ps2kbd)){
+    while(poll_events(&ps2kbd)){
         ++ticks;
 
 
@@ -531,7 +447,6 @@ int main( int argc, char * argv[] )
         }
 
         lcd->flush();
-        sdl.draw(lcd);
 
     }
 
