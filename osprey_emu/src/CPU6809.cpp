@@ -1,5 +1,6 @@
 #include "CPU6809.h"
 #include <iostream>
+#include <array>
 
 //#define CPU6809_DEBUG
 #ifdef CPU6809_DEBUG
@@ -41,7 +42,7 @@ static const char* mnemonic_table[256] = {
 
 #endif
 
-static const uint8_t cycle_cost[256] = {
+static const std::array<uint8_t, 256> cycle_cost = {
 //  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
     6, 1, 1, 6, 6, 1, 6, 6, 6, 6, 6, 1, 6, 6, 3, 6, // 0x
     1, 1, 2, 4, 1, 1, 5, 9, 1, 2, 3, 1, 3, 2, 8, 6, // 1x
