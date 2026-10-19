@@ -1064,20 +1064,8 @@
 		)
 		(instances
 			(project "osprey68"
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/0a268519-daa7-4fe6-9697-466c291f8f85"
-					(reference "Q12")
-					(unit 1)
-				)
 				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/5a20a77f-010e-4a62-8fa5-b44df68a6a82"
 					(reference "Q4")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/666e8014-265f-483b-8e26-43c2dfe18d0d"
-					(reference "Q8")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/9b3882b9-5171-42f0-8d0d-0d4c2a635f24"
-					(reference "Q16")
 					(unit 1)
 				)
 			)
@@ -1164,20 +1152,8 @@
 		)
 		(instances
 			(project "osprey68"
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/0a268519-daa7-4fe6-9697-466c291f8f85"
-					(reference "Q9")
-					(unit 1)
-				)
 				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/5a20a77f-010e-4a62-8fa5-b44df68a6a82"
 					(reference "Q1")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/666e8014-265f-483b-8e26-43c2dfe18d0d"
-					(reference "Q5")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/9b3882b9-5171-42f0-8d0d-0d4c2a635f24"
-					(reference "Q13")
 					(unit 1)
 				)
 			)
@@ -1254,20 +1230,86 @@
 		)
 		(instances
 			(project "osprey68"
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/0a268519-daa7-4fe6-9697-466c291f8f85"
-					(reference "#PWR054")
-					(unit 1)
-				)
 				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/5a20a77f-010e-4a62-8fa5-b44df68a6a82"
 					(reference "#PWR046")
 					(unit 1)
 				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/666e8014-265f-483b-8e26-43c2dfe18d0d"
-					(reference "#PWR050")
-					(unit 1)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 2.0464 0.3811 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "4359d4a9-5bdc-40dd-9196-aa7878c1259a")
+		(property "Reference" "#PWR0107"
+			(at 2.0464 6.7311 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
 				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/9b3882b9-5171-42f0-8d0d-0d4c2a635f24"
-					(reference "#PWR058")
+			)
+		)
+		(property "Value" "GND"
+			(at 2.0464 5.4611 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 2.0464 0.3811 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 2.0464 0.3811 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 2.0464 0.3811 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "baf63538-5811-407e-9228-2fed19f93e25")
+		)
+		(instances
+			(project "osprey68"
+				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/5a20a77f-010e-4a62-8fa5-b44df68a6a82"
+					(reference "#PWR0107")
 					(unit 1)
 				)
 			)
@@ -1344,20 +1386,8 @@
 		)
 		(instances
 			(project "osprey68"
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/0a268519-daa7-4fe6-9697-466c291f8f85"
-					(reference "#PWR056")
-					(unit 1)
-				)
 				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/5a20a77f-010e-4a62-8fa5-b44df68a6a82"
 					(reference "#PWR048")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/666e8014-265f-483b-8e26-43c2dfe18d0d"
-					(reference "#PWR052")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/9b3882b9-5171-42f0-8d0d-0d4c2a635f24"
-					(reference "#PWR060")
 					(unit 1)
 				)
 			)
@@ -1434,20 +1464,8 @@
 		)
 		(instances
 			(project "osprey68"
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/0a268519-daa7-4fe6-9697-466c291f8f85"
-					(reference "#PWR055")
-					(unit 1)
-				)
 				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/5a20a77f-010e-4a62-8fa5-b44df68a6a82"
 					(reference "#PWR047")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/666e8014-265f-483b-8e26-43c2dfe18d0d"
-					(reference "#PWR051")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/9b3882b9-5171-42f0-8d0d-0d4c2a635f24"
-					(reference "#PWR059")
 					(unit 1)
 				)
 			)
@@ -1534,20 +1552,8 @@
 		)
 		(instances
 			(project "osprey68"
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/0a268519-daa7-4fe6-9697-466c291f8f85"
-					(reference "Q10")
-					(unit 1)
-				)
 				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/5a20a77f-010e-4a62-8fa5-b44df68a6a82"
 					(reference "Q2")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/666e8014-265f-483b-8e26-43c2dfe18d0d"
-					(reference "Q6")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/9b3882b9-5171-42f0-8d0d-0d4c2a635f24"
-					(reference "Q14")
 					(unit 1)
 				)
 			)
@@ -1624,20 +1630,8 @@
 		)
 		(instances
 			(project "osprey68"
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/0a268519-daa7-4fe6-9697-466c291f8f85"
-					(reference "#PWR053")
-					(unit 1)
-				)
 				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/5a20a77f-010e-4a62-8fa5-b44df68a6a82"
 					(reference "#PWR045")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/666e8014-265f-483b-8e26-43c2dfe18d0d"
-					(reference "#PWR049")
-					(unit 1)
-				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/9b3882b9-5171-42f0-8d0d-0d4c2a635f24"
-					(reference "#PWR057")
 					(unit 1)
 				)
 			)
@@ -1724,20 +1718,86 @@
 		)
 		(instances
 			(project "osprey68"
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/0a268519-daa7-4fe6-9697-466c291f8f85"
-					(reference "Q11")
-					(unit 1)
-				)
 				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/5a20a77f-010e-4a62-8fa5-b44df68a6a82"
 					(reference "Q3")
 					(unit 1)
 				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/666e8014-265f-483b-8e26-43c2dfe18d0d"
-					(reference "Q7")
-					(unit 1)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 7.1264 5.4611 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "c77cdb49-0838-411f-aea0-45d046b69542")
+		(property "Reference" "#PWR0108"
+			(at 7.1264 11.8111 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
 				)
-				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/9b3882b9-5171-42f0-8d0d-0d4c2a635f24"
-					(reference "Q15")
+			)
+		)
+		(property "Value" "GND"
+			(at 7.1264 10.5411 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 7.1264 5.4611 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 7.1264 5.4611 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 7.1264 5.4611 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "63c19916-1d33-4169-befb-360c8dc43559")
+		)
+		(instances
+			(project "osprey68"
+				(path "/f1b9d1cb-0f6a-425f-a821-31958cb4a243/5d8b190b-aaee-4d73-8661-b8bc9b63f0d0/5a20a77f-010e-4a62-8fa5-b44df68a6a82"
+					(reference "#PWR0108")
 					(unit 1)
 				)
 			)

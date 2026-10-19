@@ -184,6 +184,25 @@ main
 	leay 64+32, x ;menu
 
 	jsr gui_toolbar_add_menu
+
+;third menu...
+	ldx ,s
+	leax 128+64,x ;menu object stored in same block, 32 bytes
+
+	ldy #view_menu_str
+	leas -2,s
+	ldd #12
+	std ,s
+	jsr gui_menu_constructor
+	
+	leas 2,s ;pop off
+	
+	ldx ,s
+	leax 64, x ;old toolbar obj 
+	leay 64+64, x ;menu
+
+	jsr gui_toolbar_add_menu
+
 	
 	ldx ,s ; queue address in x
 	leay 64,x ;widget at 64 bytes after queue 
@@ -227,6 +246,7 @@ main
 file_man_str fcc "File manager",0
 file_menu_str fcc 4,"File"
 edit_menu_str fcc 4,"Edit"
+view_menu_str fcc 4,"View"
 
 gui_str fcc "NO HANGS",0
 hello_str fcc "Hello from 6809!", 10, 13, "Welcome to WOZMON!",10,13,0
